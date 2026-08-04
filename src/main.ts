@@ -2,6 +2,9 @@ import { vec } from './core/geometry/vec2';
 import { createDocument, withMolecule, allocId, type Document } from './core/model/document';
 import { emptyMolecule, addAtom, addBond, type Molecule, type BondOrder, type BondStereo } from './core/model/molecule';
 import { Editor } from './editor';
+import { BondTool } from './interaction/tools/bond';
+import { ChainTool } from './interaction/tools/chain';
+import { hillFormula, molecularWeight, formulaText } from './core/chem/formula';
 
 /** Benzene ring (kekulé), centered at (cx, cy). */
 function benzene(doc: Document, cx: number, cy: number): Document {
@@ -68,6 +71,7 @@ doc = showcase(doc, 20, -10);
 const mount = document.getElementById('canvas-host')!;
 const undoBtn = document.getElementById('undo') as HTMLButtonElement;
 const redoBtn = document.getElementById('redo') as HTMLButtonElement;
+const statusline = document.getElementById('statusline')!;
 
 const editor = new Editor(mount, {
   document: doc,
@@ -75,10 +79,27 @@ const editor = new Editor(mount, {
     undoBtn.disabled = !canUndo;
     redoBtn.disabled = !canRedo;
   },
+  onDocumentChange: (doc) => {
+    const counts = hillFormula(doc);
+    statusline.textContent = counts.size === 0
+      ? 'draw: drag to bond · click a bond to cycle order · type an element over an atom'
+      : `${formulaText(counts)} · ${molecularWeight(counts).toFixed(2)} g/mol`;
+  },
 });
 
 undoBtn.addEventListener('click', () => editor.undo());
 redoBtn.addEventListener('click', () => editor.redo());
+
+const bondToolBtn = document.getElementById('tool-bond') as HTMLButtonElement;
+const chainToolBtn = document.getElementById('tool-chain') as HTMLButtonElement;
+
+function selectTool(which: 'bond' | 'chain') {
+  editor.setTool(which === 'bond' ? new BondTool() : new ChainTool());
+  bondToolBtn.classList.toggle('active', which === 'bond');
+  chainToolBtn.classList.toggle('active', which === 'chain');
+}
+bondToolBtn.addEventListener('click', () => selectTool('bond'));
+chainToolBtn.addEventListener('click', () => selectTool('chain'));
 
 // debug/e2e hook
 (window as unknown as { editor: Editor }).editor = editor;

@@ -1,7 +1,7 @@
 import type { Document } from '../model/document';
-import { findBond } from '../model/document';
+import { findAtom, findBond } from '../model/document';
 import {
-  addAtom, addBond, emptyMolecule, removeAtom, removeBond, updateBond,
+  addAtom, addBond, emptyMolecule, removeAtom, removeBond, updateAtom, updateBond,
   type Atom, type Bond, type BondOrder, type Molecule,
 } from '../model/molecule';
 import type { Command } from './command';
@@ -95,6 +95,74 @@ export class AddBond implements Command {
       ...doc,
       molecules: doc.molecules.map((m, i) =>
         i === this.moleculeIndex ? removeBond(m, this.bond.id) : m),
+    };
+  }
+}
+
+/** Change an atom's element symbol. */
+export class SetElement implements Command {
+  readonly label = 'Set element';
+  private previous: string | null = null;
+
+  constructor(
+    private readonly atomId: number,
+    private readonly element: string,
+  ) {}
+
+  do(doc: Document): Document {
+    const loc = findAtom(doc, this.atomId);
+    if (!loc) return doc;
+    this.previous = loc.atom.element;
+    return {
+      ...doc,
+      molecules: doc.molecules.map((m, i) =>
+        i === loc.moleculeIndex ? updateAtom(m, this.atomId, { element: this.element }) : m),
+    };
+  }
+
+  undo(doc: Document): Document {
+    if (this.previous === null) return doc;
+    const previous = this.previous;
+    const loc = findAtom(doc, this.atomId);
+    if (!loc) return doc;
+    return {
+      ...doc,
+      molecules: doc.molecules.map((m, i) =>
+        i === loc.moleculeIndex ? updateAtom(m, this.atomId, { element: previous }) : m),
+    };
+  }
+}
+
+/** Set an atom's formal charge. */
+export class SetCharge implements Command {
+  readonly label = 'Set charge';
+  private previous: number | null = null;
+
+  constructor(
+    private readonly atomId: number,
+    private readonly charge: number,
+  ) {}
+
+  do(doc: Document): Document {
+    const loc = findAtom(doc, this.atomId);
+    if (!loc) return doc;
+    this.previous = loc.atom.charge;
+    return {
+      ...doc,
+      molecules: doc.molecules.map((m, i) =>
+        i === loc.moleculeIndex ? updateAtom(m, this.atomId, { charge: this.charge }) : m),
+    };
+  }
+
+  undo(doc: Document): Document {
+    if (this.previous === null) return doc;
+    const previous = this.previous;
+    const loc = findAtom(doc, this.atomId);
+    if (!loc) return doc;
+    return {
+      ...doc,
+      molecules: doc.molecules.map((m, i) =>
+        i === loc.moleculeIndex ? updateAtom(m, this.atomId, { charge: previous }) : m),
     };
   }
 }

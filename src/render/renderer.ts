@@ -136,7 +136,7 @@ export function renderDocument(
       renderBond(dom, bondsG, bond, axis, style, bond.order === 2 ? ringPath(mol, bond.id) : null, adj);
     }
     for (const atom of mol.atoms.values()) {
-      if (labeled.get(atom.id)) renderLabel(dom, labelsG, atom, style);
+      if (labeled.get(atom.id)) renderLabel(dom, labelsG, mol, atom, style);
     }
   }
 

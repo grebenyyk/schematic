@@ -1,5 +1,7 @@
-import type { Atom } from '../core/model/molecule';
+import type { Atom, Molecule } from '../core/model/molecule';
+import { bondsOf } from '../core/model/molecule';
 import type { StyleSheet } from '../core/style/stylesheet';
+import { implicitHydrogens } from '../core/chem/valence';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -16,6 +18,33 @@ export function chargeText(charge: number): string {
   return n === 1 ? sign : `${n}${sign}`;
 }
 
+export interface LabelContent {
+  /** Element symbol with 'H' on the appropriate side, e.g. 'OH', 'NH', 'HO'. */
+  main: string;
+  /** Subscript digit for H counts ≥ 2 (0 = no digit shown). */
+  hCount: number;
+  /** True when H precedes the element (bond leaves to the right): HO–, H2N–. */
+  flipped: boolean;
+}
+
+export function labelText(mol: Molecule, atomId: number): LabelContent {
+  const atom = mol.atoms.get(atomId)!;
+  const h = implicitHydrogens(mol, atomId);
+  const incident = [...bondsOf(mol, atomId)];
+  const flipped = incident.length === 1 && (() => {
+    const bond = mol.bonds.get(incident[0])!;
+    const otherId = bond.a === atomId ? bond.b : bond.a;
+    return mol.atoms.get(otherId)!.pos.x > atom.pos.x;
+  })();
+  const hCount = h >= 2 ? h : 0;
+  const main = h === 0
+    ? atom.element
+    : flipped
+      ? `H${atom.element}`
+      : `${atom.element}H`;
+  return { main, hCount, flipped };
+}
+
 export function labelColor(atom: Atom, style: StyleSheet): string {
   if (style.labelColorMode === 'hetero-color') {
     return style.atomColors?.[atom.element] ?? style.colors.bond;
@@ -26,9 +55,11 @@ export function labelColor(atom: Atom, style: StyleSheet): string {
 export function renderLabel(
   doc: Document,
   group: SVGGElement,
+  mol: Molecule,
   atom: Atom,
   style: StyleSheet,
 ): void {
+  const { main, hCount } = labelText(mol, atom.id);
   const text = doc.createElementNS(SVG_NS, 'text');
   text.setAttribute('class', 'atom-label');
   text.dataset.atomId = String(atom.id);
@@ -44,8 +75,15 @@ export function renderLabel(
   text.setAttribute('stroke', style.colors.background);
   text.setAttribute('stroke-width', String(style.marginPt * 2));
   text.setAttribute('stroke-linejoin', 'round');
-  text.textContent = atom.element;
+  text.textContent = main;
 
+  if (hCount > 0) {
+    const sub = doc.createElementNS(SVG_NS, 'tspan');
+    sub.setAttribute('baseline-shift', 'sub');
+    sub.setAttribute('font-size', String(style.labelSizePt * 0.75));
+    sub.textContent = String(hCount);
+    text.appendChild(sub);
+  }
   const charge = chargeText(atom.charge);
   if (charge) {
     const sup = doc.createElementNS(SVG_NS, 'tspan');

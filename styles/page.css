@@ -45,6 +45,12 @@ body {
   cursor: default;
 }
 
+#toolbar button.tool.active {
+  background: #e8f0fa;
+  border-color: #3a7bd5;
+  color: #1f5cb0;
+}
+
 #canvas-host {
   flex: 1;
   min-height: 0;

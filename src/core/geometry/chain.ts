@@ -24,6 +24,28 @@ function angularGap(a: number, b: number): number {
 }
 
 /**
+ * Points of a zigzag chain: `count` segments of bondLength, the first along
+ * angleDeg, subsequent ones alternating ±60° (ACS 120° bond angle), bending
+ * to `side` (+1/−1). Returns count+1 points starting at `start`.
+ */
+export function chainPoints(
+  start: Vec2,
+  angleDeg: number,
+  count: number,
+  bondLength: number,
+  side: 1 | -1,
+): Vec2[] {
+  const points: Vec2[] = [start];
+  let current = start;
+  for (let i = 0; i < count; i++) {
+    const a = (angleDeg + (i % 2 === 1 ? side * 60 : 0)) * DEG;
+    current = { x: current.x + bondLength * Math.cos(a), y: current.y + bondLength * Math.sin(a) };
+    points.push(current);
+  }
+  return points;
+}
+
+/**
  * Direction for a bond added by clicking an atom ("add methyl").
  * - isolated atom: east
  * - terminal atom: 120° to the existing bond, alternating sides so repeated
