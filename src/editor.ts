@@ -181,6 +181,8 @@ export class Editor implements ToolContext {
           const hit = pick(this.document, this.lastPointer.pos, { atomRadius: 5, bondTolerance: 3 });
           if (hit?.kind === 'atom') this.commit(new DeleteAtoms([hit.id]));
           else if (hit?.kind === 'bond') this.commit(new DeleteBonds([hit.id]));
+          else return;
+          this.refreshHover();
         },
         setBondOrder: (order) => {
           if (!this.lastPointer) return;
