@@ -5,7 +5,7 @@ import { ringPath } from '../core/model/rings';
 import { norm, sub, type Vec2 } from '../core/geometry/vec2';
 import type { StyleSheet } from '../core/style/stylesheet';
 import { bondAxis, renderBond, type BondAxis } from './bonds';
-import { hasVisibleLabel, labelBox, rayRectExit, renderLabel } from './labels';
+import { hasVisibleLabel, labelBoxes, rayBoxDistance, renderLabel } from './labels';
 import { renderDecorations, type Decoration } from './decorators';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -81,12 +81,15 @@ export function bondRenderAxis(mol: Molecule, bond: Bond, style: StyleSheet): Bo
     const degree = [...bondsOf(mol, atomId)].length;
     let trim = junctionSetback(mol, bond, atomId, style);
     if (hasVisibleLabel(atom, degree)) {
-      // trim to the whole label box (element + H + charge), plus clearance
+      // trim to the label boxes (main text + charge box), plus clearance
       const otherId = bond.a === atomId ? bond.b : bond.a;
       const other = mol.atoms.get(otherId)!;
       const dir = norm(sub(other.pos, atom.pos));
-      const exit = rayRectExit(atom.pos, dir, labelBox(mol, atomId, style));
-      trim = Math.max(trim, Math.max(exit, 0) + style.marginPt);
+      let exit = Infinity;
+      for (const box of labelBoxes(mol, atomId, style)) {
+        exit = Math.min(exit, rayBoxDistance(atom.pos, dir, box));
+      }
+      if (isFinite(exit)) trim = Math.max(trim, Math.max(exit, 0) + style.marginPt);
     }
     return Math.min(trim, fullLen / 2);
   };

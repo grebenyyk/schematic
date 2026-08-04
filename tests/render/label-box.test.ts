@@ -2,7 +2,8 @@ import { describe, test, expect } from 'vitest';
 import { vec } from '../../src/core/geometry/vec2';
 import { ACS1996 } from '../../src/core/style/presets';
 import { emptyMolecule, addAtom, addBond, type Molecule } from '../../src/core/model/molecule';
-import { labelBox, rayRectExit } from '../../src/render/labels';
+import { labelBox, labelBoxes, rayBoxDistance } from '../../src/render/labels';
+import { bondRenderAxis } from '../../src/render/renderer';
 
 // fixed measurer: 6pt per full char, scaled for sub/superscripts
 const measure = (t: string, scale = 1) => t.length * 6 * scale;
@@ -55,28 +56,65 @@ describe('labelBox', () => {
   });
 });
 
-describe('rayRectExit', () => {
+describe('rayBoxDistance', () => {
   const box = { cx: 0, cy: 0, halfW: 4, halfHUp: 2, halfHDown: 2 };
 
-  test('horizontal ray exits at the side edge', () => {
-    expect(rayRectExit(vec(0, 0), vec(1, 0), box)).toBeCloseTo(4);
-    expect(rayRectExit(vec(0, 0), vec(-1, 0), box)).toBeCloseTo(4);
-  });
-
-  test('vertical ray exits at top/bottom edges', () => {
-    expect(rayRectExit(vec(0, 0), vec(0, -1), box)).toBeCloseTo(2);
-    expect(rayRectExit(vec(0, 0), vec(0, 1), box)).toBeCloseTo(2);
+  test('from inside: distance to the exit edge', () => {
+    expect(rayBoxDistance(vec(0, 0), vec(1, 0), box)).toBeCloseTo(4);
+    expect(rayBoxDistance(vec(0, 0), vec(-1, 0), box)).toBeCloseTo(4);
+    expect(rayBoxDistance(vec(0, 0), vec(0, -1), box)).toBeCloseTo(2);
+    expect(rayBoxDistance(vec(0, 0), vec(0, 1), box)).toBeCloseTo(2);
   });
 
   test('diagonal exits at whichever edge comes first', () => {
-    // 45°: reaches x=4 at t=5.66, y=2 at t=2.83 → top edge first
     const d = Math.SQRT1_2;
-    expect(rayRectExit(vec(0, 0), vec(d, -d), box)).toBeCloseTo(2 / d);
+    expect(rayBoxDistance(vec(0, 0), vec(d, -d), box)).toBeCloseTo(2 / d);
   });
 
   test('asymmetric box respects vertical imbalance', () => {
     const b = { cx: 0, cy: 0, halfW: 4, halfHUp: 5, halfHDown: 1 };
-    expect(rayRectExit(vec(0, 0), vec(0, -1), b)).toBeCloseTo(5);
-    expect(rayRectExit(vec(0, 0), vec(0, 1), b)).toBeCloseTo(1);
+    expect(rayBoxDistance(vec(0, 0), vec(0, -1), b)).toBeCloseTo(5);
+    expect(rayBoxDistance(vec(0, 0), vec(0, 1), b)).toBeCloseTo(1);
+  });
+
+  test('from outside: distance to the entry edge', () => {
+    expect(rayBoxDistance(vec(-10, 0), vec(1, 0), box)).toBeCloseTo(6);
+    expect(rayBoxDistance(vec(0, -10), vec(0, 1), box)).toBeCloseTo(8);
+  });
+
+  test('ray that misses returns Infinity', () => {
+    expect(rayBoxDistance(vec(-10, 0), vec(-1, 0), box)).toBe(Infinity);
+    expect(rayBoxDistance(vec(-10, 10), vec(1, 0), box)).toBe(Infinity);
+  });
+});
+
+describe('labelBoxes (main + charge superscript box)', () => {
+  test('charged label yields a second box above the right end', () => {
+    const { mol, id } = molWith('O', -1, [{ deg: 180 }]);
+    const boxes = labelBoxes(mol, id, ACS1996, measure);
+    expect(boxes).toHaveLength(2);
+    const [main, sup] = boxes;
+    expect(sup.cx).toBeGreaterThan(main.cx);
+    expect(sup.halfHUp).toBeGreaterThan(main.halfHUp);
+  });
+
+  test('uncharged label is a single box', () => {
+    const { mol, id } = molWith('O', 0, [{ deg: 180, order: 2 }]);
+    expect(labelBoxes(mol, id, ACS1996, measure)).toHaveLength(1);
+  });
+
+  test('acetic C–O bond keeps its drawn length when OH becomes O⁻', () => {
+    const build = (charge: number) => {
+      let m = emptyMolecule();
+      m = addAtom(m, { id: 1, element: 'O', pos: vec(0, 0), charge, hydrogens: null });
+      m = addAtom(m, { id: 2, element: 'C', pos: vec(-7.2, -12.47), charge: 0, hydrogens: null });
+      m = addBond(m, { id: 10, a: 1, b: 2, order: 1, stereo: 'none' });
+      return m;
+    };
+    const oh = build(0);
+    const oMinus = build(-1);
+    const axisOH = bondRenderAxis(oh, oh.bonds.get(10)!, ACS1996);
+    const axisOM = bondRenderAxis(oMinus, oMinus.bonds.get(10)!, ACS1996);
+    expect(axisOM.length).toBeCloseTo(axisOH.length, 4);
   });
 });

@@ -141,16 +141,75 @@ export function labelBox(
   };
 }
 
-/** Distance from `from` along `dir` to the edge of the label box. */
-export function rayRectExit(from: Vec2, dir: Vec2, box: LabelBox): number {
+/**
+ * Distance from `from` along `dir` until the ray first touches the box:
+ * entry when outside, exit when inside, Infinity on a miss. Slab method.
+ */
+export function rayBoxDistance(from: Vec2, dir: Vec2, box: LabelBox): number {
   const dx = from.x - box.cx;
   const dy = from.y - box.cy;
-  let t = Infinity;
-  if (dir.x > 1e-9) t = Math.min(t, (box.halfW - dx) / dir.x);
-  else if (dir.x < -1e-9) t = Math.min(t, (-box.halfW - dx) / dir.x);
-  if (dir.y < -1e-9) t = Math.min(t, (-box.halfHUp - dy) / dir.y);
-  else if (dir.y > 1e-9) t = Math.min(t, (box.halfHDown - dy) / dir.y);
-  return t;
+  let tmin = -Infinity;
+  let tmax = Infinity;
+
+  if (Math.abs(dir.x) < 1e-9) {
+    if (dx < -box.halfW || dx > box.halfW) return Infinity;
+  } else {
+    const t1 = (-box.halfW - dx) / dir.x;
+    const t2 = (box.halfW - dx) / dir.x;
+    tmin = Math.max(tmin, Math.min(t1, t2));
+    tmax = Math.min(tmax, Math.max(t1, t2));
+  }
+
+  const top = -box.halfHUp;
+  const bottom = box.halfHDown;
+  if (Math.abs(dir.y) < 1e-9) {
+    if (dy < top || dy > bottom) return Infinity;
+  } else {
+    const t1 = (top - dy) / dir.y;
+    const t2 = (bottom - dy) / dir.y;
+    tmin = Math.max(tmin, Math.min(t1, t2));
+    tmax = Math.min(tmax, Math.max(t1, t2));
+  }
+
+  if (tmax < tmin || tmax < 0) return Infinity;
+  return tmin > 0 ? tmin : tmax;
+}
+
+/**
+ * The label as boxes for bond trimming: the main text at glyph height,
+ * plus a separate taller box for the charge superscript above its right
+ * end — so superscripts only block bonds that actually reach them.
+ */
+export function labelBoxes(
+  mol: Molecule,
+  atomId: number,
+  style: StyleSheet,
+  measure?: TextMeasurer,
+): LabelBox[] {
+  const atom = mol.atoms.get(atomId)!;
+  const m = measure ?? makeMeasurer(style);
+  const { element, h, flipped } = labelText(mol, atomId);
+  const charge = chargeText(atom.charge);
+  const hWidth = h > 0 ? m('H') + (h >= 2 ? m(String(h), 0.75) : 0) : 0;
+  const leftW = flipped ? hWidth : 0;
+  const rightW = flipped ? 0 : hWidth;
+  const mainCx = atom.pos.x + (rightW - leftW) / 2;
+  const mainHalfW = (m(element) + hWidth) / 2;
+  const up = style.labelSizePt * 0.38;
+  const boxes: LabelBox[] = [
+    { cx: mainCx, cy: atom.pos.y, halfW: mainHalfW, halfHUp: up, halfHDown: up },
+  ];
+  if (charge) {
+    const cw = m(charge, 0.75);
+    boxes.push({
+      cx: mainCx + mainHalfW + cw / 2,
+      cy: atom.pos.y,
+      halfW: cw / 2,
+      halfHUp: style.labelSizePt * 0.73,
+      halfHDown: style.labelSizePt * 0.1,
+    });
+  }
+  return boxes;
 }
 
 export function renderLabel(
