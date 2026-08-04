@@ -8,6 +8,8 @@ function makeController() {
     redo: () => { calls.push('redo'); },
     setBondOrder: (n) => { calls.push(`order:${n}`); },
     delete: () => { calls.push('delete'); },
+    selectAll: () => { calls.push('selectAll'); },
+    clearSelection: () => { calls.push('clearSelection'); },
   };
   return { controller, calls };
 }
@@ -39,6 +41,13 @@ describe('handleKeyDown', () => {
     expect(handleKeyDown(key('Delete'), controller)).toBe(true);
     expect(handleKeyDown(key('Backspace'), controller)).toBe(true);
     expect(calls).toEqual(['delete', 'delete']);
+  });
+
+  test('Ctrl+A selects all, Escape clears', () => {
+    const { controller, calls } = makeController();
+    expect(handleKeyDown(key('a', { ctrlKey: true }), controller)).toBe(true);
+    expect(handleKeyDown(key('Escape'), controller)).toBe(true);
+    expect(calls).toEqual(['selectAll', 'clearSelection']);
   });
 
   test('unhandled keys return false', () => {

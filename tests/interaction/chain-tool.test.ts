@@ -6,7 +6,7 @@ import type { Document } from '../../src/core/model/document';
 import { emptyMolecule, addAtom, addBond } from '../../src/core/model/molecule';
 import type { Command } from '../../src/core/commands/command';
 import { ChainTool } from '../../src/interaction/tools/chain';
-import type { ToolContext, PointerInfo } from '../../src/interaction/tools';
+import type { ToolContext, PointerInfo, Selection } from '../../src/interaction/tools';
 import type { Decoration } from '../../src/render/decorators';
 
 function makeCtx(initial: Document) {
@@ -21,6 +21,8 @@ function makeCtx(initial: Document) {
       return ids;
     },
     setDecorations(d: Decoration[]) { state.decorations.push(d); },
+    getSelection: () => ({ atoms: new Set(), bonds: new Set() }),
+    setSelection: (_s: Selection) => {},
   };
   return { ctx, state };
 }

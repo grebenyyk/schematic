@@ -21,7 +21,10 @@ export type Decoration =
       charge?: string;
     }
   | { type: 'hover-bond'; center: Vec2 }
-  | { type: 'snap-guide'; from: Vec2; to: Vec2 };
+  | { type: 'snap-guide'; from: Vec2; to: Vec2 }
+  | { type: 'select-atom'; pos: Vec2 }
+  | { type: 'select-bond'; center: Vec2; dir: Vec2; length: number }
+  | { type: 'marquee'; from: Vec2; to: Vec2 };
 
 /** Hover/merge highlight for an atom: full-label outline when labeled, circle otherwise. */
 export function atomHoverDecoration(doc: MolDocument, atomId: number, style: StyleSheet): Decoration {
@@ -89,6 +92,39 @@ export function renderDecorations(
       c.setAttribute('r', String(style.labelSizePt * 0.15));
       c.setAttribute('fill', style.colors.hover);
       group.appendChild(c);
+    } else if (d.type === 'select-atom') {
+      const c = doc.createElementNS(SVG_NS, 'circle');
+      c.setAttribute('cx', String(d.pos.x));
+      c.setAttribute('cy', String(d.pos.y));
+      c.setAttribute('r', String(style.labelSizePt * 0.35));
+      c.setAttribute('fill', 'none');
+      c.setAttribute('stroke', style.colors.selection);
+      c.setAttribute('stroke-width', String(style.lineWidthPt * 1.5));
+      group.appendChild(c);
+    } else if (d.type === 'select-bond') {
+      const line = doc.createElementNS(SVG_NS, 'line');
+      const hx = (d.dir.x * d.length) / 2;
+      const hy = (d.dir.y * d.length) / 2;
+      line.setAttribute('x1', String(d.center.x - hx));
+      line.setAttribute('y1', String(d.center.y - hy));
+      line.setAttribute('x2', String(d.center.x + hx));
+      line.setAttribute('y2', String(d.center.y + hy));
+      line.setAttribute('stroke', style.colors.selection);
+      line.setAttribute('stroke-width', String(style.boldWidthPt));
+      line.setAttribute('stroke-linecap', 'round');
+      line.setAttribute('opacity', '0.5');
+      group.appendChild(line);
+    } else if (d.type === 'marquee') {
+      const rect = doc.createElementNS(SVG_NS, 'rect');
+      rect.setAttribute('x', String(Math.min(d.from.x, d.to.x)));
+      rect.setAttribute('y', String(Math.min(d.from.y, d.to.y)));
+      rect.setAttribute('width', String(Math.abs(d.to.x - d.from.x)));
+      rect.setAttribute('height', String(Math.abs(d.to.y - d.from.y)));
+      rect.setAttribute('fill', 'none');
+      rect.setAttribute('stroke', style.colors.selection);
+      rect.setAttribute('stroke-width', String(style.lineWidthPt));
+      rect.setAttribute('stroke-dasharray', '2 2');
+      group.appendChild(rect);
     } else {
       const line = doc.createElementNS(SVG_NS, 'line');
       line.setAttribute('x1', String(d.from.x));

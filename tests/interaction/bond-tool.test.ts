@@ -6,7 +6,7 @@ import type { Document } from '../../src/core/model/document';
 import { emptyMolecule, addAtom, addBond } from '../../src/core/model/molecule';
 import type { Command } from '../../src/core/commands/command';
 import { BondTool } from '../../src/interaction/tools/bond';
-import type { ToolContext, PointerInfo } from '../../src/interaction/tools';
+import type { ToolContext, PointerInfo, Selection } from '../../src/interaction/tools';
 import type { Decoration } from '../../src/render/decorators';
 
 /** Fake context: applies commits to a real document, records decorations. */
@@ -26,6 +26,8 @@ function makeCtx(initial: Document) {
       return ids;
     },
     setDecorations(d: Decoration[]) { state.decorations.push(d); },
+    getSelection: () => ({ atoms: new Set(), bonds: new Set() }),
+    setSelection: (_s: Selection) => {},
   };
   return { ctx, state };
 }

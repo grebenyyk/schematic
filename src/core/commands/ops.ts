@@ -1,5 +1,6 @@
 import type { Document } from '../model/document';
 import { findAtom, findBond } from '../model/document';
+import type { Vec2 } from '../geometry/vec2';
 import {
   addAtom, addBond, emptyMolecule, removeAtom, removeBond, updateAtom, updateBond,
   type Atom, type Bond, type BondOrder, type Molecule,
@@ -196,6 +197,39 @@ export class SetBondOrder implements Command {
       ...doc,
       molecules: doc.molecules.map((m, i) =>
         i === loc.moleculeIndex ? updateBond(m, this.bondId, { order: previous }) : m),
+    };
+  }
+}
+
+/** Translate a set of atoms by a delta; undo applies the inverse. */
+export class MoveAtoms implements Command {
+  readonly label = 'Move';
+
+  constructor(
+    private readonly atomIds: number[],
+    private readonly delta: Vec2,
+  ) {}
+
+  do(doc: Document): Document {
+    return this.translate(doc, this.delta);
+  }
+
+  undo(doc: Document): Document {
+    return this.translate(doc, { x: -this.delta.x, y: -this.delta.y });
+  }
+
+  private translate(doc: Document, d: Vec2): Document {
+    const ids = new Set(this.atomIds);
+    return {
+      ...doc,
+      molecules: doc.molecules.map((m) => {
+        let out = m;
+        for (const id of ids) {
+          const a = out.atoms.get(id);
+          if (a) out = updateAtom(out, id, { pos: { x: a.pos.x + d.x, y: a.pos.y + d.y } });
+        }
+        return out;
+      }),
     };
   }
 }

@@ -10,6 +10,11 @@ export interface PointerInfo {
   shift: boolean;
 }
 
+export interface Selection {
+  atoms: Set<number>;
+  bonds: Set<number>;
+}
+
 export interface ToolContext {
   readonly document: Document;
   readonly style: StyleSheet;
@@ -17,6 +22,8 @@ export interface ToolContext {
   /** Reserve n fresh ids for atoms/bonds a gesture is about to create. */
   allocIds(n: number): number[];
   setDecorations(decorations: Decoration[]): void;
+  getSelection(): Selection;
+  setSelection(selection: Selection): void;
 }
 
 export interface Tool {

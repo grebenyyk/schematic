@@ -4,6 +4,7 @@ import { emptyMolecule, addAtom, addBond, type Molecule, type BondOrder, type Bo
 import { Editor } from './editor';
 import { BondTool } from './interaction/tools/bond';
 import { ChainTool } from './interaction/tools/chain';
+import { SelectTool } from './interaction/tools/select';
 import { hillFormula, molecularWeight, formulaText } from './core/chem/formula';
 
 /** Benzene ring (kekulé), centered at (cx, cy). */
@@ -92,14 +93,18 @@ redoBtn.addEventListener('click', () => editor.redo());
 
 const bondToolBtn = document.getElementById('tool-bond') as HTMLButtonElement;
 const chainToolBtn = document.getElementById('tool-chain') as HTMLButtonElement;
+const selectToolBtn = document.getElementById('tool-select') as HTMLButtonElement;
 
-function selectTool(which: 'bond' | 'chain') {
-  editor.setTool(which === 'bond' ? new BondTool() : new ChainTool());
+function selectTool(which: 'bond' | 'chain' | 'select') {
+  editor.setTool(
+    which === 'bond' ? new BondTool() : which === 'chain' ? new ChainTool() : new SelectTool());
   bondToolBtn.classList.toggle('active', which === 'bond');
   chainToolBtn.classList.toggle('active', which === 'chain');
+  selectToolBtn.classList.toggle('active', which === 'select');
 }
 bondToolBtn.addEventListener('click', () => selectTool('bond'));
 chainToolBtn.addEventListener('click', () => selectTool('chain'));
+selectToolBtn.addEventListener('click', () => selectTool('select'));
 
 // debug/e2e hook
 (window as unknown as { editor: Editor }).editor = editor;

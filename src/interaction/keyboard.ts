@@ -12,6 +12,10 @@ export interface KeyController {
   setBondOrder(order: 1 | 2 | 3): void;
   /** Delete the currently hovered atom/bond (no-op when none). */
   delete(): void;
+  /** Ctrl+A. */
+  selectAll(): void;
+  /** Esc. */
+  clearSelection(): void;
 }
 
 /** Returns true when the key was handled (caller should preventDefault). */
@@ -24,6 +28,14 @@ export function handleKeyDown(e: KeyEvent, controller: KeyController): boolean {
   }
   if (!mod && (e.key === 'Delete' || e.key === 'Backspace')) {
     controller.delete();
+    return true;
+  }
+  if (mod && e.key.toLowerCase() === 'a') {
+    controller.selectAll();
+    return true;
+  }
+  if (!mod && e.key === 'Escape') {
+    controller.clearSelection();
     return true;
   }
   if (mod && e.key.toLowerCase() === 'z') {

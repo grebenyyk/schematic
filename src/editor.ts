@@ -6,8 +6,11 @@ import type { StyleSheet } from './core/style/stylesheet';
 import type { Command } from './core/commands/command';
 import { History } from './core/commands/history';
 import { SetBondOrder, SetElement, SetCharge, AddAtom, DeleteAtoms, DeleteBonds } from './core/commands/ops';
+import { CompoundCommand } from './core/commands/command';
 import { ElementTyper } from './interaction/element-typer';
 import { canSetBondOrder } from './core/chem/valence';
+import { selectionDecorations } from './interaction/tools/select';
+import type { Selection } from './interaction/tools';
 import { renderDocument } from './render/renderer';
 import { clientToPt } from './render/viewport';
 import type { Decoration } from './render/decorators';
@@ -63,6 +66,27 @@ export class Editor implements ToolContext {
     this.render();
   }
 
+  private selection: Selection = { atoms: new Set(), bonds: new Set() };
+
+  getSelection(): Selection {
+    return this.selection;
+  }
+
+  setSelection(selection: Selection): void {
+    this.selection = selection;
+    this.render();
+  }
+
+  selectAll(): void {
+    const atoms = new Set<number>();
+    const bonds = new Set<number>();
+    for (const mol of this.document.molecules) {
+      for (const a of mol.atoms.values()) atoms.add(a.id);
+      for (const b of mol.bonds.values()) bonds.add(b.id);
+    }
+    this.setSelection({ atoms, bonds });
+  }
+
   /** Replace the whole document (import, demos, tests). Clears history. */
   loadDocument(doc: Document): void {
     this.history = new History(doc);
@@ -98,7 +122,8 @@ export class Editor implements ToolContext {
   private lastRenderedDoc: Document | null = null;
 
   private render(): void {
-    renderDocument(document, this.svg, this.history.document, this.style, this.decorations);
+    renderDocument(document, this.svg, this.history.document, this.style,
+      [...selectionDecorations(this), ...this.decorations]);
     this.onHistoryChange?.(this.history.canUndo, this.history.canRedo);
     if (this.history.document !== this.lastRenderedDoc) {
       this.lastRenderedDoc = this.history.document;
@@ -177,6 +202,15 @@ export class Editor implements ToolContext {
         undo: () => this.undo(),
         redo: () => this.redo(),
         delete: () => {
+          const sel = this.selection;
+          if (sel.atoms.size > 0 || sel.bonds.size > 0) {
+            const commands = [];
+            if (sel.atoms.size > 0) commands.push(new DeleteAtoms([...sel.atoms]));
+            if (sel.bonds.size > 0) commands.push(new DeleteBonds([...sel.bonds]));
+            this.commit(new CompoundCommand(commands, 'Delete selection'));
+            this.setSelection({ atoms: new Set(), bonds: new Set() });
+            return;
+          }
           if (!this.lastPointer) return;
           const hit = pick(this.document, this.lastPointer.pos, { atomRadius: 5, bondTolerance: 3 });
           if (hit?.kind === 'atom') this.commit(new DeleteAtoms([hit.id]));
@@ -184,6 +218,8 @@ export class Editor implements ToolContext {
           else return;
           this.refreshHover();
         },
+        selectAll: () => this.selectAll(),
+        clearSelection: () => this.setSelection({ atoms: new Set(), bonds: new Set() }),
         setBondOrder: (order) => {
           if (!this.lastPointer) return;
           const hit = pick(this.document, this.lastPointer.pos, { atomRadius: 5, bondTolerance: 3 });

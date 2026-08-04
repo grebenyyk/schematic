@@ -125,6 +125,23 @@ describe('renderDecorations', () => {
     expect(g.querySelector('line')).toBeNull();
   });
 
+  test('selection: atom circle and bond line in selection color, marquee rect', () => {
+    const g = makeG();
+    renderDecorations(document, g, [
+      { type: 'select-atom', pos: vec(0, 0) },
+      { type: 'select-bond', center: vec(7.2, 0), dir: vec(1, 0), length: 14.4 },
+      { type: 'marquee', from: vec(-5, -5), to: vec(20, 10) },
+    ], ACS1996);
+    const circle = g.querySelector('circle')!;
+    expect(circle.getAttribute('stroke')).toBe(ACS1996.colors.selection);
+    const bondLine = g.querySelector('line')!;
+    expect(bondLine.getAttribute('stroke')).toBe(ACS1996.colors.selection);
+    const rect = g.querySelector('rect')!;
+    expect(rect.getAttribute('stroke-dasharray')).toBeTruthy();
+    expect(rect.getAttribute('width')).toBe('25');
+    expect(rect.getAttribute('height')).toBe('15');
+  });
+
   test('snap guide draws a dashed line', () => {
     const g = makeG();
     renderDecorations(document, g, [{ type: 'snap-guide', from: vec(0, 0), to: vec(14.4, 0) }], ACS1996);
