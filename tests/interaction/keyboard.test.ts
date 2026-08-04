@@ -7,6 +7,7 @@ function makeController() {
     undo: () => { calls.push('undo'); },
     redo: () => { calls.push('redo'); },
     setBondOrder: (n) => { calls.push(`order:${n}`); },
+    delete: () => { calls.push('delete'); },
   };
   return { controller, calls };
 }
@@ -31,6 +32,13 @@ describe('handleKeyDown', () => {
     handleKeyDown(key('y', { ctrlKey: true }), controller);
     handleKeyDown(key('z', { metaKey: true }), controller); // mac cmd
     expect(calls).toEqual(['undo', 'redo', 'redo', 'undo']);
+  });
+
+  test('Delete and Backspace erase', () => {
+    const { controller, calls } = makeController();
+    expect(handleKeyDown(key('Delete'), controller)).toBe(true);
+    expect(handleKeyDown(key('Backspace'), controller)).toBe(true);
+    expect(calls).toEqual(['delete', 'delete']);
   });
 
   test('unhandled keys return false', () => {

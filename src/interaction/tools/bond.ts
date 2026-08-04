@@ -6,7 +6,8 @@ import { findAtom, findBond } from '../../core/model/document';
 import { bondRenderAxis } from '../../render/renderer';
 import { ringPath } from '../../core/model/rings';
 import { ringInwardNormal } from '../../render/bonds';
-import { implicitHydrogens } from '../../core/chem/valence';
+import { implicitHydrogens, canSetBondOrder } from '../../core/chem/valence';
+import type { BondOrder } from '../../core/model/molecule';
 import type { Command } from '../../core/commands/command';
 import { CompoundCommand } from '../../core/commands/command';
 import { AddAtom, AddBond, SetBondOrder } from '../../core/commands/ops';
@@ -67,9 +68,17 @@ export class BondTool implements Tool {
     if (!this.startPos) return;
     if (!this.moved) {
       if (this.clickedBond !== null) {
-        const order = findBond(ctx.document, this.clickedBond)?.bond.order;
-        if (order === 1 || order === 2 || order === 3) {
-          ctx.commit(new SetBondOrder(this.clickedBond, order === 3 ? 1 : ((order + 1) as 2 | 3)));
+        const loc = findBond(ctx.document, this.clickedBond);
+        const order = loc?.bond.order;
+        if (loc && (order === 1 || order === 2 || order === 3)) {
+          // cycle 1→2→3→1, skipping orders that would exceed valence
+          const mol = ctx.document.molecules[loc.moleculeIndex];
+          for (const next of [order % 3 + 1, (order + 1) % 3 + 1] as BondOrder[]) {
+            if (canSetBondOrder(mol, this.clickedBond, next)) {
+              if (next !== order) ctx.commit(new SetBondOrder(this.clickedBond, next));
+              break;
+            }
+          }
         }
       } else if (this.anchorAtom !== null) {
         this.commitMethyl(ctx);

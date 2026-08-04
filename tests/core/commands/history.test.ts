@@ -3,7 +3,7 @@ import { vec } from '../../../src/core/geometry/vec2';
 import { createDocument, findAtom, findBond, allocId } from '../../../src/core/model/document';
 import { History } from '../../../src/core/commands/history';
 import { CompoundCommand } from '../../../src/core/commands/command';
-import { AddAtom, AddBond, SetBondOrder, DeleteAtoms } from '../../../src/core/commands/ops';
+import { AddAtom, AddBond, SetBondOrder, DeleteAtoms, DeleteBonds } from '../../../src/core/commands/ops';
 
 const atom = (id: number, x = 0, y = 0) => ({ id, element: 'C', pos: vec(x, y), charge: 0, hydrogens: null as null });
 
@@ -91,6 +91,23 @@ describe('DeleteAtoms', () => {
     expect(findAtom(h.document, 2)).not.toBeNull();
     expect(findBond(h.document, 10)?.bond.order).toBe(1);
     expect(findBond(h.document, 11)?.bond.order).toBe(2);
+  });
+});
+
+describe('DeleteBonds', () => {
+  test('removes only bonds; undo restores them', () => {
+    const h = new History(createDocument());
+    h.commit(new AddAtom(atom(1), null));
+    h.commit(new AddAtom(atom(2, 14.4, 0), 0));
+    h.commit(new AddBond({ id: 10, a: 1, b: 2, order: 1, stereo: 'none' }, 0));
+
+    h.commit(new DeleteBonds([10]));
+    expect(findBond(h.document, 10)).toBeNull();
+    expect(findAtom(h.document, 1)).not.toBeNull();
+    expect(findAtom(h.document, 2)).not.toBeNull();
+
+    h.undo();
+    expect(findBond(h.document, 10)?.bond.order).toBe(1);
   });
 });
 

@@ -33,3 +33,18 @@ export function implicitHydrogens(mol: Molecule, atomId: number): number {
   }
   return Math.max(0, Math.round(valence(atom.element, atom.charge) - sum));
 }
+
+/**
+ * Would setting this bond order keep both endpoints within valence?
+ * Raising the order consumes free valence (implicit H capacity) at both ends.
+ */
+export function canSetBondOrder(mol: Molecule, bondId: number, order: BondOrder): boolean {
+  const bond = mol.bonds.get(bondId);
+  if (!bond) return false;
+  const delta = orderValue(order) - orderValue(bond.order);
+  if (delta <= 0) return true;
+  return (
+    implicitHydrogens(mol, bond.a) >= delta &&
+    implicitHydrogens(mol, bond.b) >= delta
+  );
+}

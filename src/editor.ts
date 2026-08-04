@@ -5,8 +5,9 @@ import { ACS1996 } from './core/style/presets';
 import type { StyleSheet } from './core/style/stylesheet';
 import type { Command } from './core/commands/command';
 import { History } from './core/commands/history';
-import { SetBondOrder, SetElement, SetCharge, AddAtom } from './core/commands/ops';
+import { SetBondOrder, SetElement, SetCharge, AddAtom, DeleteAtoms, DeleteBonds } from './core/commands/ops';
 import { ElementTyper } from './interaction/element-typer';
+import { canSetBondOrder } from './core/chem/valence';
 import { renderDocument } from './render/renderer';
 import { clientToPt } from './render/viewport';
 import type { Decoration } from './render/decorators';
@@ -175,10 +176,18 @@ export class Editor implements ToolContext {
       const handled = handleKeyDown(e, {
         undo: () => this.undo(),
         redo: () => this.redo(),
+        delete: () => {
+          if (!this.lastPointer) return;
+          const hit = pick(this.document, this.lastPointer.pos, { atomRadius: 5, bondTolerance: 3 });
+          if (hit?.kind === 'atom') this.commit(new DeleteAtoms([hit.id]));
+          else if (hit?.kind === 'bond') this.commit(new DeleteBonds([hit.id]));
+        },
         setBondOrder: (order) => {
           if (!this.lastPointer) return;
           const hit = pick(this.document, this.lastPointer.pos, { atomRadius: 5, bondTolerance: 3 });
-          if (hit?.kind === 'bond' && findBond(this.document, hit.id)) {
+          if (hit?.kind !== 'bond') return;
+          const loc = findBond(this.document, hit.id);
+          if (loc && canSetBondOrder(this.document.molecules[loc.moleculeIndex], hit.id, order)) {
             this.commit(new SetBondOrder(hit.id, order));
           }
         },

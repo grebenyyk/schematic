@@ -200,6 +200,34 @@ export class SetBondOrder implements Command {
   }
 }
 
+/** Delete bonds (atoms stay). Snapshot-based undo, like DeleteAtoms. */
+export class DeleteBonds implements Command {
+  readonly label = 'Delete bond';
+  private snapshot: Molecule[] | null = null;
+
+  constructor(private readonly bondIds: number[]) {}
+
+  do(doc: Document): Document {
+    this.snapshot = doc.molecules;
+    const ids = new Set(this.bondIds);
+    return {
+      ...doc,
+      molecules: doc.molecules.map((m) => {
+        let out = m;
+        for (const id of ids) {
+          if (out.bonds.has(id)) out = removeBond(out, id);
+        }
+        return out;
+      }),
+    };
+  }
+
+  undo(doc: Document): Document {
+    if (!this.snapshot) return doc;
+    return { ...doc, molecules: this.snapshot };
+  }
+}
+
 /**
  * Delete atoms and their incident bonds; molecules left empty are dropped.
  * Undo restores a snapshot of the affected molecules (documents are tiny).

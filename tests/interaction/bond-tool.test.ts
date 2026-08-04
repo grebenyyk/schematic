@@ -219,6 +219,27 @@ describe('BondTool click cycling', () => {
     expect(findBond(state.doc, 10)?.bond.order).toBe(1);
   });
 
+  test('cycling skips orders that would exceed valence (isobutene)', () => {
+    // CH2=C(CH3)2: clicking the double bond skips 3 (pentavalent C) → wraps to 1
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 2, element: 'C', pos: vec(14.4, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 3, element: 'C', pos: vec(21.6, 12.5), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 4, element: 'C', pos: vec(21.6, -12.5), charge: 0, hydrogens: null });
+    m = addBond(m, { id: 10, a: 1, b: 2, order: 2, stereo: 'none' });
+    m = addBond(m, { id: 11, a: 2, b: 3, order: 1, stereo: 'none' });
+    m = addBond(m, { id: 12, a: 2, b: 4, order: 1, stereo: 'none' });
+    const { ctx, state } = makeCtx(withMolecule(createDocument(), m));
+    const tool = new BondTool();
+    const click = () => { tool.onDown(at(7.2, 0.4), ctx); tool.onUp(at(7.2, 0.4), ctx); };
+    click();
+    expect(findBond(state.doc, 10)?.bond.order).toBe(1); // 2 →(skip 3)→ 1
+    click();
+    expect(findBond(state.doc, 10)?.bond.order).toBe(2); // 1 → 2 is fine
+    click();
+    expect(findBond(state.doc, 10)?.bond.order).toBe(1); // and skips 3 again
+  });
+
   test('click on empty space places a methane (lone carbon)', () => {
     const { ctx, state } = makeCtx(createDocument());
     const tool = new BondTool();

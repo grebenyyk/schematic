@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { vec } from '../../../src/core/geometry/vec2';
-import { implicitHydrogens } from '../../../src/core/chem/valence';
+import { implicitHydrogens, canSetBondOrder } from '../../../src/core/chem/valence';
 import { emptyMolecule, addAtom, addBond, type Atom, type BondOrder, type Molecule } from '../../../src/core/model/molecule';
 
 function mol(
@@ -58,5 +58,36 @@ describe('implicitHydrogens', () => {
 
   test('never negative', () => {
     expect(implicitHydrogens(mol('O', [1, 1, 1]).m, 1)).toBe(0);
+  });
+});
+
+describe('canSetBondOrder', () => {
+  // isobutene: CH2=C(CH3)2 — central C (id 2) already at valence 4
+  function isobutene(): { m: Molecule; bondId: number } {
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 2, element: 'C', pos: vec(14.4, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 3, element: 'C', pos: vec(21.6, 12.5), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 4, element: 'C', pos: vec(21.6, -12.5), charge: 0, hydrogens: null });
+    m = addBond(m, { id: 10, a: 1, b: 2, order: 2, stereo: 'none' });
+    m = addBond(m, { id: 11, a: 2, b: 3, order: 1, stereo: 'none' });
+    m = addBond(m, { id: 12, a: 2, b: 4, order: 1, stereo: 'none' });
+    return { m, bondId: 10 };
+  }
+
+  test('double → triple on a saturated carbon is rejected', () => {
+    const { m, bondId } = isobutene();
+    expect(canSetBondOrder(m, bondId, 3)).toBe(false);
+  });
+
+  test('double → single is always fine (frees valence)', () => {
+    const { m, bondId } = isobutene();
+    expect(canSetBondOrder(m, bondId, 1)).toBe(true);
+  });
+
+  test('single → double on ethane is fine', () => {
+    const { m } = mol('C', [1]);
+    const bondId = [...m.bonds.keys()][0];
+    expect(canSetBondOrder(m, bondId, 2)).toBe(true);
   });
 });
