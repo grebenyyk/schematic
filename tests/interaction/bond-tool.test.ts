@@ -187,12 +187,18 @@ describe('BondTool click cycling', () => {
     expect(findBond(state.doc, 10)?.bond.order).toBe(1);
   });
 
-  test('click on empty space does nothing', () => {
+  test('click on empty space places a methane (lone carbon)', () => {
     const { ctx, state } = makeCtx(createDocument());
     const tool = new BondTool();
     tool.onDown(at(50, 50), ctx);
     tool.onUp(at(50, 50), ctx);
-    expect(state.doc.molecules).toHaveLength(0);
+    expect(state.doc.molecules).toHaveLength(1);
+    const mol = state.doc.molecules[0];
+    expect(mol.atoms.size).toBe(1);
+    expect(mol.bonds.size).toBe(0);
+    const atom = [...mol.atoms.values()][0];
+    expect(atom.element).toBe('C');
+    expect(atom.pos).toEqual({ x: 50, y: 50 });
   });
 });
 

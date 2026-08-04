@@ -70,6 +70,11 @@ export class BondTool implements Tool {
         }
       } else if (this.anchorAtom !== null) {
         this.commitMethyl(ctx);
+      } else {
+        // click on empty space: place a methane (lone carbon)
+        const [id] = ctx.allocIds(1);
+        ctx.commit(new AddAtom(
+          { id, element: 'C', pos: this.startPos!, charge: 0, hydrogens: null }, null));
       }
     } else if (this.clickedBond === null && this.endPos) {
       this.commitDraw(ctx);
