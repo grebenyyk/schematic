@@ -10,7 +10,7 @@ import { implicitHydrogens, canSetBondOrder } from '../../core/chem/valence';
 import type { BondOrder } from '../../core/model/molecule';
 import type { Command } from '../../core/commands/command';
 import { CompoundCommand } from '../../core/commands/command';
-import { AddAtom, AddBond, SetBondOrder } from '../../core/commands/ops';
+import { AddAtom, AddBond, SetBondOrder, SetCharge } from '../../core/commands/ops';
 import { atomHoverDecoration, type Decoration } from '../../render/decorators';
 import type { PointerInfo, Tool, ToolContext } from '../tools';
 
@@ -19,6 +19,9 @@ const BOND_TOLERANCE = 3;
 const MERGE_RADIUS = 5;
 const CLICK_THRESHOLD = 2;
 const ANGLE_STEP_DEG = 15;
+
+/** Elements that accept an extra bond by taking a + charge (onium ions). */
+const ONIUM_ELEMENTS = new Set(['N', 'O', 'P', 'S']);
 
 /**
  * The "everything tool": click-drag draws a bond (from empty space or an
@@ -170,15 +173,20 @@ export class BondTool implements Tool {
     const loc = findAtom(doc, this.anchorAtom!);
     if (!loc) return;
     const mol = doc.molecules[loc.moleculeIndex];
-    // valence-saturated atoms (no implicit H to give up) don't grow
-    if (implicitHydrogens(mol, loc.atom.id) === 0) return;
+    // saturated atoms don't grow — except onium-forming heteroatoms,
+    // which take a + charge instead (NMe3 → [NMe4]+)
+    const saturated = implicitHydrogens(mol, loc.atom.id) === 0;
+    const chargeDelta = saturated && ONIUM_ELEMENTS.has(loc.atom.element) ? 1 : 0;
+    if (saturated && chargeDelta === 0) return;
     const dir = defaultBondDirection(mol, loc.atom.id);
     const [idB, idBond] = ctx.allocIds(2);
     const pos = add(loc.atom.pos, scale(dir, ctx.style.bondLengthPt));
-    ctx.commit(new CompoundCommand([
+    const commands: Command[] = [
       new AddAtom({ id: idB, element: 'C', pos, charge: 0, hydrogens: null }, loc.moleculeIndex),
       new AddBond({ id: idBond, a: loc.atom.id, b: idB, order: 1, stereo: 'none' }, loc.moleculeIndex),
-    ], 'Add methyl'));
+    ];
+    if (chargeDelta === 1) commands.push(new SetCharge(loc.atom.id, loc.atom.charge + 1));
+    ctx.commit(new CompoundCommand(commands, 'Add methyl'));
   }
 
   private reset(): void {

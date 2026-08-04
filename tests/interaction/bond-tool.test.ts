@@ -166,6 +166,24 @@ describe('BondTool click on an atom', () => {
     expect(state.doc.molecules[0].bonds.size).toBe(4);
   });
 
+  test('click on trimethylamine N adds a methyl AND a + charge (ammonium)', () => {
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'N', pos: vec(0, 0), charge: 0, hydrogens: null });
+    for (let i = 0; i < 3; i++) {
+      const a = (Math.PI / 180) * (30 + i * 120);
+      m = addAtom(m, { id: 10 + i, element: 'C', pos: vec(14.4 * Math.cos(a), 14.4 * Math.sin(a)), charge: 0, hydrogens: null });
+      m = addBond(m, { id: 100 + i, a: 1, b: 10 + i, order: 1, stereo: 'none' });
+    }
+    const { ctx, state } = makeCtx(withMolecule(createDocument(), m));
+    const tool = new BondTool();
+    tool.onDown(at(0.3, 0.3), ctx);
+    tool.onUp(at(0.3, 0.3), ctx);
+    const n = state.doc.molecules[0].atoms.get(1)!;
+    expect(state.doc.molecules[0].atoms.size).toBe(5);
+    expect(state.doc.molecules[0].bonds.size).toBe(4);
+    expect(n.charge).toBe(1);
+  });
+
   test('adds to an atom with remaining valence (C with 3 bonds)', () => {
     let m = emptyMolecule();
     m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
