@@ -56,11 +56,11 @@ describe('renderDocument', () => {
     expect(contents.some((c) => c === 'C')).toBe(false);
   });
 
-  test('labels use paint-order stroke knockout with background color', () => {
+  test('labels have no knockout halo (bonds are trimmed to the label box)', () => {
     renderDocument(document, svg, demoDoc(), ACS1996);
     const text = svg.querySelector('g.labels text')!;
-    expect(text.getAttribute('paint-order')).toBe('stroke');
-    expect(text.getAttribute('stroke')).toBe(ACS1996.colors.background);
+    expect(text.getAttribute('paint-order')).toBeNull();
+    expect(text.getAttribute('stroke')).toBeNull();
   });
 
   test('charge renders as superscript tspan', () => {

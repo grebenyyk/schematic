@@ -137,11 +137,7 @@ export function renderLabel(
   text.setAttribute('font-family', style.labelFont);
   text.setAttribute('font-size', String(style.labelSizePt));
   text.setAttribute('fill', labelColor(atom, style));
-  // label knockout: thick background-colored stroke painted under the fill
-  text.setAttribute('paint-order', 'stroke');
-  text.setAttribute('stroke', style.colors.background);
-  text.setAttribute('stroke-width', String(style.marginPt * 2));
-  text.setAttribute('stroke-linejoin', 'round');
+  // no knockout: bonds are trimmed to the label box, a halo is unnecessary
   text.textContent = main;
 
   if (hCount > 0) {
