@@ -51,16 +51,49 @@ describe('labelText', () => {
 });
 
 describe('renderLabel H counts', () => {
-  test('H count 2 renders as a subscript tspan', () => {
-    const { mol, id } = molWith('N', [{ order: 1, dx: -14.4 }]);
+  const makeG = () => {
     const svg = document.createElementNS(SVG_NS, 'svg');
     const g = document.createElementNS(SVG_NS, 'g');
     svg.appendChild(g);
     document.body.appendChild(svg);
-    renderLabel(document, g as unknown as SVGGElement, mol, mol.atoms.get(id)!, ACS1996);
+    return g as unknown as SVGGElement;
+  };
+
+  test('H count 2 renders as a subscript tspan', () => {
+    const { mol, id } = molWith('N', [{ order: 1, dx: -14.4 }]);
+    const g = makeG();
+    renderLabel(document, g, mol, mol.atoms.get(id)!, ACS1996);
     const text = g.querySelector('text')!;
     expect(text.textContent).toBe('NH2');
     const sub = [...text.querySelectorAll('tspan')].find((t) => t.getAttribute('baseline-shift') === 'sub');
     expect(sub?.textContent).toBe('2');
+  });
+
+  test('OH with bond from the left: label shifted so O sits at the atom position', () => {
+    const { mol, id } = molWith('O', [{ order: 1, dx: -14.4 }]);
+    const g = makeG();
+    const measure = (t: string) => t.length * 6; // fake: 6pt per char
+    renderLabel(document, g, mol, mol.atoms.get(id)!, ACS1996, measure);
+    const text = g.querySelector('text')!;
+    expect(text.textContent).toBe('OH');
+    // shift left by half the width of the trailing 'H'
+    expect(Number(text.getAttribute('x'))).toBeCloseTo(-3);
+  });
+
+  test('flipped HO with bond to the right: shifted right so O sits at the atom position', () => {
+    const { mol, id } = molWith('O', [{ order: 1, dx: 14.4 }]);
+    const g = makeG();
+    const measure = (t: string) => t.length * 6;
+    renderLabel(document, g, mol, mol.atoms.get(id)!, ACS1996, measure);
+    const text = g.querySelector('text')!;
+    expect(text.textContent).toBe('HO');
+    expect(Number(text.getAttribute('x'))).toBeCloseTo(3);
+  });
+
+  test('single-letter labels are not shifted', () => {
+    const { mol, id } = molWith('O', [{ order: 2, dx: -14.4 }]);
+    const g = makeG();
+    renderLabel(document, g, mol, mol.atoms.get(id)!, ACS1996, (t) => t.length * 6);
+    expect(Number(g.querySelector('text')!.getAttribute('x'))).toBeCloseTo(0);
   });
 });

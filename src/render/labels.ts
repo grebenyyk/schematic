@@ -52,18 +52,47 @@ export function labelColor(atom: Atom, style: StyleSheet): string {
   return style.colors.bond;
 }
 
+/** Measures text width in pt at the label font (second arg = size scale). */
+export type TextMeasurer = (text: string, scale?: number) => number;
+
+let measureCanvas: CanvasRenderingContext2D | null | undefined;
+
+/** Canvas-backed measurement when available, per-char estimate otherwise. */
+export function makeMeasurer(style: StyleSheet): TextMeasurer {
+  if (measureCanvas === undefined && typeof document !== 'undefined') {
+    measureCanvas = document.createElement('canvas').getContext('2d');
+  }
+  return (text, scale = 1) => {
+    const size = style.labelSizePt * scale;
+    if (measureCanvas) {
+      measureCanvas.font = `${size}px ${style.labelFont}`;
+      return measureCanvas.measureText(text).width;
+    }
+    return text.length * size * 0.62; // jsdom / fallback estimate
+  };
+}
+
 export function renderLabel(
   doc: Document,
   group: SVGGElement,
   mol: Molecule,
   atom: Atom,
   style: StyleSheet,
+  measure?: TextMeasurer,
 ): void {
-  const { main, hCount } = labelText(mol, atom.id);
+  const { main, hCount, flipped } = labelText(mol, atom.id);
+  const hasH = main.includes('H') && main.length > atom.element.length;
+  let xShift = 0;
+  if (hasH) {
+    const m = measure ?? makeMeasurer(style);
+    // keep the element letter at the atom position: shift by half the H part
+    const hPartWidth = m('H') + (hCount > 0 ? m(String(hCount), 0.75) : 0);
+    xShift = (flipped ? 1 : -1) * (hPartWidth / 2);
+  }
   const text = doc.createElementNS(SVG_NS, 'text');
   text.setAttribute('class', 'atom-label');
   text.dataset.atomId = String(atom.id);
-  text.setAttribute('x', String(atom.pos.x));
+  text.setAttribute('x', String(atom.pos.x + xShift));
   text.setAttribute('y', String(atom.pos.y));
   text.setAttribute('text-anchor', 'middle');
   text.setAttribute('dominant-baseline', 'central');

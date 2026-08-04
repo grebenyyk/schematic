@@ -3,7 +3,7 @@ import type { Document as MolDocument } from '../core/model/document';
 import { findAtom } from '../core/model/document';
 import { bondsOf } from '../core/model/molecule';
 import type { StyleSheet } from '../core/style/stylesheet';
-import { chargeText, hasVisibleLabel, labelText } from './labels';
+import { chargeText, hasVisibleLabel, labelText, makeMeasurer } from './labels';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -47,9 +47,18 @@ export function renderDecorations(
   for (const d of decorations) {
     if (d.type === 'hover-atom') {
       if (d.labeled && d.main) {
-        // heteroatom: outline the whole label (OH, NH2, charges…)
+        // heteroatom: outline the whole label (OH, NH2, charges…),
+        // shifted exactly like the real label so they overlay
+        const element = d.main.replace('H', '');
+        const hasH = d.main.includes('H') && d.main.length > element.length;
+        let xShift = 0;
+        if (hasH) {
+          const m = makeMeasurer(style);
+          const hPartWidth = m('H') + (d.hCount && d.hCount > 0 ? m(String(d.hCount), 0.75) : 0);
+          xShift = (d.main.startsWith('H') ? 1 : -1) * (hPartWidth / 2);
+        }
         const t = doc.createElementNS(SVG_NS, 'text');
-        t.setAttribute('x', String(d.pos.x));
+        t.setAttribute('x', String(d.pos.x + xShift));
         t.setAttribute('y', String(d.pos.y));
         t.setAttribute('text-anchor', 'middle');
         t.setAttribute('dominant-baseline', 'central');
