@@ -150,6 +150,38 @@ describe('BondTool click on an atom', () => {
     expect([60, 300].some((x) => Math.abs(d - x) < 1e-6)).toBe(true);
   });
 
+  test('does not add to a valence-saturated atom (C with 4 bonds)', () => {
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
+    for (let i = 0; i < 4; i++) {
+      const a = (Math.PI / 180) * (45 + i * 90);
+      m = addAtom(m, { id: 10 + i, element: 'C', pos: vec(14.4 * Math.cos(a), 14.4 * Math.sin(a)), charge: 0, hydrogens: null });
+      m = addBond(m, { id: 100 + i, a: 1, b: 10 + i, order: 1, stereo: 'none' });
+    }
+    const { ctx, state } = makeCtx(withMolecule(createDocument(), m));
+    const tool = new BondTool();
+    tool.onDown(at(0.3, 0.3), ctx);
+    tool.onUp(at(0.3, 0.3), ctx);
+    expect(state.doc.molecules[0].atoms.size).toBe(5); // unchanged
+    expect(state.doc.molecules[0].bonds.size).toBe(4);
+  });
+
+  test('adds to an atom with remaining valence (C with 3 bonds)', () => {
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
+    for (let i = 0; i < 3; i++) {
+      const a = (Math.PI / 180) * (30 + i * 120);
+      m = addAtom(m, { id: 10 + i, element: 'C', pos: vec(14.4 * Math.cos(a), 14.4 * Math.sin(a)), charge: 0, hydrogens: null });
+      m = addBond(m, { id: 100 + i, a: 1, b: 10 + i, order: 1, stereo: 'none' });
+    }
+    const { ctx, state } = makeCtx(withMolecule(createDocument(), m));
+    const tool = new BondTool();
+    tool.onDown(at(0.3, 0.3), ctx);
+    tool.onUp(at(0.3, 0.3), ctx);
+    expect(state.doc.molecules[0].atoms.size).toBe(5);
+    expect(state.doc.molecules[0].bonds.size).toBe(4);
+  });
+
   test('repeated clicks extend a zigzag chain, undoably per click', () => {
     const { ctx, state } = makeCtx(docWithBond());
     const tool = new BondTool();

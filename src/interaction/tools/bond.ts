@@ -6,6 +6,7 @@ import { findAtom, findBond } from '../../core/model/document';
 import { bondRenderAxis } from '../../render/renderer';
 import { ringPath } from '../../core/model/rings';
 import { ringInwardNormal } from '../../render/bonds';
+import { implicitHydrogens } from '../../core/chem/valence';
 import type { Command } from '../../core/commands/command';
 import { CompoundCommand } from '../../core/commands/command';
 import { AddAtom, AddBond, SetBondOrder } from '../../core/commands/ops';
@@ -160,6 +161,8 @@ export class BondTool implements Tool {
     const loc = findAtom(doc, this.anchorAtom!);
     if (!loc) return;
     const mol = doc.molecules[loc.moleculeIndex];
+    // valence-saturated atoms (no implicit H to give up) don't grow
+    if (implicitHydrogens(mol, loc.atom.id) === 0) return;
     const dir = defaultBondDirection(mol, loc.atom.id);
     const [idB, idBond] = ctx.allocIds(2);
     const pos = add(loc.atom.pos, scale(dir, ctx.style.bondLengthPt));
