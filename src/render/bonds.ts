@@ -116,7 +116,9 @@ export function ringInwardNormal(axis: BondAxis, path: Vec2[]): Vec2 {
 
 /**
  * Ring double bond: one line on the axis, the second offset by the full
- * spacing toward the ring interior (the side the ring path lies on).
+ * spacing toward the ring interior. The inner line is trimmed at both ends
+ * so it stops short of the vertex — half the bisector distance,
+ * gap / (4·sin(θ/2)) where θ is the ring's interior angle there.
  */
 export function ringDoubleBondLines(
   axis: BondAxis,
@@ -125,9 +127,21 @@ export function ringDoubleBondLines(
 ): [Line, Line] {
   const inward = ringInwardNormal(axis, path);
   const gap = style.doubleBondSpacing * style.bondLengthPt;
+
+  const trimAt = (vertex: Vec2, ringNeighbor: Vec2, alongBond: Vec2): number => {
+    const u = norm(sub(ringNeighbor, vertex));
+    const cosTheta = u.x * alongBond.x + u.y * alongBond.y;
+    const theta = Math.acos(Math.max(-1, Math.min(1, cosTheta)));
+    const sin = Math.sin(theta / 2);
+    return sin < 1e-6 ? 0 : gap / (4 * sin);
+  };
+
+  const back = { x: -axis.dir.x, y: -axis.dir.y };
+  const trimA = trimAt(axis.a, path[1] ?? axis.a, axis.dir);
+  const trimB = trimAt(axis.b, path[path.length - 2] ?? axis.b, back);
   const inner = {
-    p1: add(axis.a, scale(inward, gap)),
-    p2: add(axis.b, scale(inward, gap)),
+    p1: add(add(axis.a, scale(inward, gap)), scale(axis.dir, trimA)),
+    p2: sub(add(axis.b, scale(inward, gap)), scale(axis.dir, trimB)),
   };
   return [{ p1: axis.a, p2: axis.b }, inner];
 }

@@ -68,6 +68,30 @@ describe('ringDoubleBondLines', () => {
     }
   });
 
+  test('inner line ends on the corner bisectors, short of the vertices', () => {
+    const { mol, doubleBondIds } = benzene();
+    const gap = ACS1996.doubleBondSpacing * ACS1996.bondLengthPt;
+    for (const id of doubleBondIds) {
+      const bond = mol.bonds.get(id)!;
+      const pa = mol.atoms.get(bond.a)!.pos;
+      const pb = mol.atoms.get(bond.b)!.pos;
+      const axis = bondAxis(pa, pb, 0, 0);
+      const path = ringPath(mol, id)!;
+      const [onAxis, inner] = ringDoubleBondLines(axis, path, ACS1996);
+
+      // on-axis line spans the full edge
+      expect(dist(onAxis.p1, axis.a)).toBeCloseTo(0);
+      expect(dist(onAxis.p2, axis.b)).toBeCloseTo(0);
+
+      // inner line is trimmed at both ends: gap / (4·sin(120°/2)) for a hexagon
+      const trim = gap / (4 * Math.sin(Math.PI / 3));
+      const innerLen = dist(inner.p1, inner.p2);
+      expect(innerLen).toBeCloseTo(axis.length - 2 * trim, 4);
+      // trim points lie along the axis direction from the inner line ends
+      expect(dist(inner.p1, axis.a)).toBeCloseTo(Math.hypot(trim, gap), 3);
+    }
+  });
+
   test('acyclic double bonds stay symmetric (sanity: existing behavior)', () => {
     const axis = bondAxis(vec(0, 0), vec(14.4, 0), 0, 0);
     const [l1, l2] = doubleBondLines(axis, ACS1996);
