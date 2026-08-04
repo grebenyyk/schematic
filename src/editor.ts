@@ -7,6 +7,7 @@ import type { Command } from './core/commands/command';
 import { History } from './core/commands/history';
 import { SetBondOrder } from './core/commands/ops';
 import { renderDocument } from './render/renderer';
+import { clientToPt } from './render/viewport';
 import type { Decoration } from './render/decorators';
 import { BondTool } from './interaction/tools/bond';
 import type { PointerInfo, Tool, ToolContext } from './interaction/tools';
@@ -83,11 +84,8 @@ export class Editor implements ToolContext {
   private toPtSpace(e: PointerEvent): PointerInfo {
     const rect = this.svg.getBoundingClientRect();
     const vb = this.svg.viewBox.baseVal;
-    const sx = rect.width > 0 ? vb.width / rect.width : 1;
-    const sy = rect.height > 0 ? vb.height / rect.height : 1;
-    const s = Math.max(sx, sy); // preserveAspectRatio: uniform scale
     return {
-      pos: vec(vb.x + (e.clientX - rect.left) * s, vb.y + (e.clientY - rect.top) * s),
+      pos: clientToPt(vec(e.clientX, e.clientY), rect, vb),
       alt: e.altKey,
       shift: e.shiftKey,
     };
