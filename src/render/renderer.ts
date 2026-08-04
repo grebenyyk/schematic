@@ -5,7 +5,7 @@ import { ringPath } from '../core/model/rings';
 import { norm, sub, type Vec2 } from '../core/geometry/vec2';
 import type { StyleSheet } from '../core/style/stylesheet';
 import { bondAxis, renderBond, type BondAxis } from './bonds';
-import { hasVisibleLabel, renderLabel } from './labels';
+import { hasVisibleLabel, labelBox, rayRectExit, renderLabel } from './labels';
 import { renderDecorations, type Decoration } from './decorators';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -15,11 +15,6 @@ function layer(dom: Document, svg: SVGSVGElement, cls: string): SVGGElement {
   g.setAttribute('class', cls);
   svg.appendChild(g);
   return g;
-}
-
-/** How much to shorten a bond endpoint: clearance where a label sits. */
-function trimFor(labeled: boolean, style: StyleSheet): number {
-  return labeled ? style.marginPt + style.labelSizePt * 0.35 : 0;
 }
 
 /** Unit directions of the other bonds leaving an atom (excluding bondId). */
@@ -63,7 +58,13 @@ export function bondRenderAxis(mol: Molecule, bond: Bond, style: StyleSheet): Bo
   const trimEnd = (atomId: number) => {
     const atom = mol.atoms.get(atomId)!;
     const degree = [...bondsOf(mol, atomId)].length;
-    return Math.min(trimFor(hasVisibleLabel(atom, degree), style), fullLen / 2);
+    if (!hasVisibleLabel(atom, degree)) return 0;
+    // trim to the whole label box (element + H + charge), plus clearance
+    const otherId = bond.a === atomId ? bond.b : bond.a;
+    const other = mol.atoms.get(otherId)!;
+    const dir = norm(sub(other.pos, atom.pos));
+    const exit = rayRectExit(atom.pos, dir, labelBox(mol, atomId, style));
+    return Math.min(Math.max(exit, 0) + style.marginPt, fullLen / 2);
   };
   return bondAxis(a.pos, b.pos, trimEnd(bond.a), trimEnd(bond.b));
 }

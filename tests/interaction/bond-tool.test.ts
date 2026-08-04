@@ -215,18 +215,19 @@ describe('BondTool hover', () => {
   });
 
   test('bond hover dot sits at the center of the drawn (trimmed) line, not the atom midpoint', () => {
-    // C–O bond: the O label trims the drawn line at the O end
+    // C=O bond: the O label (plain 'O', no H) trims the drawn line at the O end
     let m = emptyMolecule();
     m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
     m = addAtom(m, { id: 2, element: 'O', pos: vec(14.4, 0), charge: 0, hydrogens: null });
-    m = addBond(m, { id: 10, a: 1, b: 2, order: 1, stereo: 'none' });
+    m = addBond(m, { id: 10, a: 1, b: 2, order: 2, stereo: 'none' });
     const { ctx, state } = makeCtx(withMolecule(createDocument(), m));
     const tool = new BondTool();
     tool.onHover(at(5.5, 0.5), ctx);
     const deco = state.decorations.at(-1)![0];
     expect(deco.type).toBe('hover-bond');
     if (deco.type === 'hover-bond') {
-      const oTrim = ACS1996.marginPt + ACS1996.labelSizePt * 0.35;
+      // trim = label-box half-width (estimate measurer: 0.62 × size) + margin
+      const oTrim = (0.62 * ACS1996.labelSizePt) / 2 + ACS1996.marginPt;
       const expectedCenterX = (14.4 - oTrim) / 2; // trimmed axis center, not 7.2
       expect(deco.center.x).toBeCloseTo(expectedCenterX, 5);
       expect(deco.center.x).not.toBeCloseTo(7.2, 1);
