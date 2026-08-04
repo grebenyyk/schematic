@@ -37,6 +37,16 @@ describe('labelBox', () => {
     expect(box.halfW).toBeCloseTo(6); // 'OH' = 12pt
   });
 
+  test('adding a charge does not move the element letter (OH → O⁻)', () => {
+    const bondLeft = [{ deg: 180 }];
+    const oh = labelBox(molWith('O', 0, bondLeft).mol, 1, ACS1996, measure);
+    const oMinus = labelBox(molWith('O', -1, bondLeft).mol, 1, ACS1996, measure);
+    // element letter center = box left edge + width('O')/2 (nothing on the left)
+    const oCenter = (b: typeof oh) => b.cx - b.halfW + 6 / 2;
+    expect(oCenter(oh)).toBeCloseTo(0);
+    expect(oCenter(oMinus)).toBeCloseTo(0);
+  });
+
   test('charge extends the box upward', () => {
     const plain = labelBox(molWith('N', 0, [{ deg: 180 }, { deg: 0 }]).mol, 1, ACS1996, measure); // –NH–
     const charged = labelBox(molWith('N', 1, [{ deg: 180 }, { deg: 0 }]).mol, 1, ACS1996, measure); // –NH2+–

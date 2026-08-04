@@ -38,7 +38,8 @@ export function labelText(mol: Molecule, atomId: number): LabelContent {
     const otherId = bond.a === atomId ? bond.b : bond.a;
     lean += mol.atoms.get(otherId)!.pos.x - atom.pos.x;
   }
-  const flipped = h > 0 && lean > 0;
+  // tolerance: a vertical bond is a tie (H right), not a rightward lean
+  const flipped = h > 0 && lean > 1e-6;
   return { element: atom.element, h, flipped };
 }
 
@@ -124,16 +125,19 @@ export function labelBox(
   const { element, h, flipped } = labelText(mol, atomId);
   const charge = chargeText(atom.charge);
   const hWidth = h > 0 ? m('H') + (h >= 2 ? m(String(h), 0.75) : 0) : 0;
-  // the element letter sits at the atom position: for 'OH' the label shifts
-  // RIGHT by half the H part, for flipped 'HO' it shifts LEFT
-  const xShift = h > 0 ? (flipped ? -1 : 1) * (hWidth / 2) : 0;
-  const width = m(element) + hWidth + (charge ? m(charge, 0.75) : 0);
+  const chargeWidth = charge ? m(charge, 0.75) : 0;
+  // the element letter NEVER moves: H's extend left (flipped) or right,
+  // the charge extends right; the box centers around those parts
+  const leftW = flipped ? hWidth : 0;
+  const rightW = (flipped ? 0 : hWidth) + chargeWidth;
+  const width = m(element) + hWidth + chargeWidth;
   return {
-    cx: atom.pos.x + xShift,
+    cx: atom.pos.x + (rightW - leftW) / 2,
     cy: atom.pos.y,
     halfW: width / 2,
     halfHUp: style.labelSizePt * 0.38 + (charge ? style.labelSizePt * 0.35 : 0),
-    halfHDown: style.labelSizePt * 0.38 + (h >= 2 ? style.labelSizePt * 0.2 : 0),
+    // subscripts hang to the side, not toward bonds: no extra depth for them
+    halfHDown: style.labelSizePt * 0.38,
   };
 }
 

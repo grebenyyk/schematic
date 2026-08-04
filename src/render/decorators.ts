@@ -52,10 +52,13 @@ export function renderDecorations(
         // heteroatom: outline the whole label (OH, NH2, charges…),
         // shifted exactly like the real label so they overlay
         let xShift = 0;
-        if (d.h && d.h > 0) {
+        {
           const m = makeMeasurer(style);
-          const hPartWidth = m('H') + (d.h >= 2 ? m(String(d.h), 0.75) : 0);
-          xShift = (d.flipped ? -1 : 1) * (hPartWidth / 2);
+          const hWidth = d.h && d.h > 0 ? m('H') + (d.h >= 2 ? m(String(d.h), 0.75) : 0) : 0;
+          const chargeWidth = d.charge ? m(d.charge, 0.75) : 0;
+          const leftW = d.flipped ? hWidth : 0;
+          const rightW = (d.flipped ? 0 : hWidth) + chargeWidth;
+          xShift = (rightW - leftW) / 2;
         }
         const t = doc.createElementNS(SVG_NS, 'text');
         t.setAttribute('x', String(d.pos.x + xShift));
