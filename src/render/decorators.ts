@@ -20,7 +20,7 @@ export function renderDecorations(
       const c = doc.createElementNS(SVG_NS, 'circle');
       c.setAttribute('cx', String(d.pos.x));
       c.setAttribute('cy', String(d.pos.y));
-      c.setAttribute('r', String(style.labelSizePt * 0.7));
+      c.setAttribute('r', String(style.labelSizePt * 0.35));
       c.setAttribute('fill', 'none');
       c.setAttribute('stroke', style.colors.hover);
       c.setAttribute('stroke-width', String(style.lineWidthPt * 1.5));
