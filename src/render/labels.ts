@@ -20,10 +20,9 @@ export function chargeText(charge: number): string {
 }
 
 export interface LabelContent {
-  /** Element symbol with 'H' on the appropriate side, e.g. 'OH', 'NH', 'HO'. */
-  main: string;
-  /** Subscript digit for H counts ≥ 2 (0 = no digit shown). */
-  hCount: number;
+  element: string;
+  /** Implicit H count (0 = no H shown). */
+  h: number;
   /** True when H precedes the element (bond leaves to the right): HO–, H2N–. */
   flipped: boolean;
 }
@@ -31,19 +30,51 @@ export interface LabelContent {
 export function labelText(mol: Molecule, atomId: number): LabelContent {
   const atom = mol.atoms.get(atomId)!;
   const h = implicitHydrogens(mol, atomId);
-  const incident = [...bondsOf(mol, atomId)];
-  const flipped = incident.length === 1 && (() => {
-    const bond = mol.bonds.get(incident[0])!;
+  // H's go on the side the bonds lean AWAY from, so bonds visually attach to
+  // the element letter, not the hydrogens. Ties (or vertical bonds): H right.
+  let lean = 0;
+  for (const bondId of bondsOf(mol, atomId)) {
+    const bond = mol.bonds.get(bondId)!;
     const otherId = bond.a === atomId ? bond.b : bond.a;
-    return mol.atoms.get(otherId)!.pos.x > atom.pos.x;
-  })();
-  const hCount = h >= 2 ? h : 0;
-  const main = h === 0
-    ? atom.element
-    : flipped
-      ? `H${atom.element}`
-      : `${atom.element}H`;
-  return { main, hCount, flipped };
+    lean += mol.atoms.get(otherId)!.pos.x - atom.pos.x;
+  }
+  const flipped = h > 0 && lean > 0;
+  return { element: atom.element, h, flipped };
+}
+
+/**
+ * Fill a <text> with a label: element + H (+ subscript) + charge superscript.
+ * Flipped labels lead with H (and its subscript), then the element.
+ */
+export function appendLabelContent(
+  doc: Document,
+  text: SVGTextElement,
+  content: LabelContent & { charge: string },
+  style: StyleSheet,
+): void {
+  const { element, h, flipped, charge } = content;
+  const sub = (t: string) => {
+    const el = doc.createElementNS(SVG_NS, 'tspan');
+    el.setAttribute('baseline-shift', 'sub');
+    el.setAttribute('font-size', String(style.labelSizePt * 0.75));
+    el.textContent = t;
+    text.appendChild(el);
+  };
+  if (flipped && h > 0) {
+    text.textContent = 'H';
+    if (h >= 2) sub(String(h));
+    text.appendChild(doc.createTextNode(element));
+  } else {
+    text.textContent = element + (h > 0 ? 'H' : '');
+    if (h >= 2) sub(String(h));
+  }
+  if (charge) {
+    const sup = doc.createElementNS(SVG_NS, 'tspan');
+    sup.setAttribute('baseline-shift', 'super');
+    sup.setAttribute('font-size', String(style.labelSizePt * 0.75));
+    sup.textContent = charge;
+    text.appendChild(sup);
+  }
 }
 
 export function labelColor(atom: Atom, style: StyleSheet): string {
@@ -90,18 +121,19 @@ export function labelBox(
 ): LabelBox {
   const atom = mol.atoms.get(atomId)!;
   const m = measure ?? makeMeasurer(style);
-  const { main, hCount, flipped } = labelText(mol, atomId);
+  const { element, h, flipped } = labelText(mol, atomId);
   const charge = chargeText(atom.charge);
-  const hWidth = m('H') + (hCount > 0 ? m(String(hCount), 0.75) : 0);
-  const hasH = main.includes('H') && main.length > atom.element.length;
-  const xShift = hasH ? (flipped ? 1 : -1) * (hWidth / 2) : 0;
-  const width = m(main) + (hCount > 0 ? m(String(hCount), 0.75) : 0) + (charge ? m(charge, 0.75) : 0);
+  const hWidth = h > 0 ? m('H') + (h >= 2 ? m(String(h), 0.75) : 0) : 0;
+  // the element letter sits at the atom position: for 'OH' the label shifts
+  // RIGHT by half the H part, for flipped 'HO' it shifts LEFT
+  const xShift = h > 0 ? (flipped ? -1 : 1) * (hWidth / 2) : 0;
+  const width = m(element) + hWidth + (charge ? m(charge, 0.75) : 0);
   return {
     cx: atom.pos.x + xShift,
     cy: atom.pos.y,
     halfW: width / 2,
-    halfHUp: style.labelSizePt * 0.5 + (charge ? style.labelSizePt * 0.4 : 0),
-    halfHDown: style.labelSizePt * 0.5 + (hCount > 0 ? style.labelSizePt * 0.15 : 0),
+    halfHUp: style.labelSizePt * 0.38 + (charge ? style.labelSizePt * 0.35 : 0),
+    halfHDown: style.labelSizePt * 0.38 + (h >= 2 ? style.labelSizePt * 0.2 : 0),
   };
 }
 
@@ -125,7 +157,7 @@ export function renderLabel(
   style: StyleSheet,
   measure?: TextMeasurer,
 ): void {
-  const { main, hCount } = labelText(mol, atom.id);
+  const content = labelText(mol, atom.id);
   const box = labelBox(mol, atom.id, style, measure);
   const text = doc.createElementNS(SVG_NS, 'text');
   text.setAttribute('class', 'atom-label');
@@ -138,23 +170,7 @@ export function renderLabel(
   text.setAttribute('font-size', String(style.labelSizePt));
   text.setAttribute('fill', labelColor(atom, style));
   // no knockout: bonds are trimmed to the label box, a halo is unnecessary
-  text.textContent = main;
-
-  if (hCount > 0) {
-    const sub = doc.createElementNS(SVG_NS, 'tspan');
-    sub.setAttribute('baseline-shift', 'sub');
-    sub.setAttribute('font-size', String(style.labelSizePt * 0.75));
-    sub.textContent = String(hCount);
-    text.appendChild(sub);
-  }
-  const charge = chargeText(atom.charge);
-  if (charge) {
-    const sup = doc.createElementNS(SVG_NS, 'tspan');
-    sup.setAttribute('baseline-shift', 'super');
-    sup.setAttribute('font-size', String(style.labelSizePt * 0.75));
-    sup.textContent = charge;
-    text.appendChild(sup);
-  }
+  appendLabelContent(doc, text, { ...content, charge: chargeText(atom.charge) }, style);
 
   group.appendChild(text);
 }

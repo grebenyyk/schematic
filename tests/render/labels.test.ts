@@ -24,29 +24,41 @@ function molWith(
 describe('labelText', () => {
   test('terminal O with one single bond is OH', () => {
     const { mol, id } = molWith('O', [{ order: 1, dx: -14.4 }]);
-    expect(labelText(mol, id)).toEqual({ main: 'OH', hCount: 0, flipped: false });
+    expect(labelText(mol, id)).toEqual({ element: 'O', h: 1, flipped: false });
   });
 
   test('terminal N with one bond is NH2', () => {
     const { mol, id } = molWith('N', [{ order: 1, dx: -14.4 }]);
-    expect(labelText(mol, id)).toEqual({ main: 'NH', hCount: 2, flipped: false });
+    expect(labelText(mol, id)).toEqual({ element: 'N', h: 2, flipped: false });
   });
 
   test('bond leaving to the right flips the H to the front (HO, H2N)', () => {
     const { mol, id } = molWith('O', [{ order: 1, dx: 14.4 }]);
-    expect(labelText(mol, id)).toEqual({ main: 'HO', hCount: 0, flipped: true });
+    expect(labelText(mol, id)).toEqual({ element: 'O', h: 1, flipped: true });
     const n = molWith('N', [{ order: 1, dx: 14.4 }]);
-    expect(labelText(n.mol, n.id)).toEqual({ main: 'HN', hCount: 2, flipped: true });
+    expect(labelText(n.mol, n.id)).toEqual({ element: 'N', h: 2, flipped: true });
   });
 
   test('double-bonded O has no H', () => {
     const { mol, id } = molWith('O', [{ order: 2, dx: -14.4 }]);
-    expect(labelText(mol, id)).toEqual({ main: 'O', hCount: 0, flipped: false });
+    expect(labelText(mol, id)).toEqual({ element: 'O', h: 0, flipped: false });
   });
 
   test('middle N with two bonds is NH', () => {
     const { mol, id } = molWith('N', [{ order: 1, dx: -14.4 }, { order: 1, dx: 14.4 }]);
-    expect(labelText(mol, id)).toEqual({ main: 'NH', hCount: 0, flipped: false });
+    expect(labelText(mol, id)).toEqual({ element: 'N', h: 1, flipped: false });
+  });
+
+  test('bonds leaning right flip the H to the left, even with several bonds', () => {
+    // down-left bond + strong right bond: H goes left ('HN') so the right
+    // bond attaches to the N letter
+    const { mol, id } = molWith('N', [{ order: 1, dx: -7.2 }, { order: 1, dx: 14.4 }]);
+    expect(labelText(mol, id).flipped).toBe(true);
+  });
+
+  test('bonds leaning left keep H on the right', () => {
+    const { mol, id } = molWith('N', [{ order: 1, dx: -14.4 }, { order: 1, dx: 7.2 }]);
+    expect(labelText(mol, id).flipped).toBe(false);
   });
 });
 
@@ -69,25 +81,39 @@ describe('renderLabel H counts', () => {
     expect(sub?.textContent).toBe('2');
   });
 
-  test('OH with bond from the left: label shifted so O sits at the atom position', () => {
+  test('flipped label renders H first, then subscript, then element (H2N, not HN2)', () => {
+    const { mol, id } = molWith('N', [{ order: 1, dx: 14.4 }]);
+    const g = makeG();
+    renderLabel(document, g, mol, mol.atoms.get(id)!, ACS1996);
+    const text = g.querySelector('text')!;
+    expect(text.textContent).toBe('H2N');
+    // subscript tspan sits between the H and the N
+    expect(text.childNodes[0].textContent).toBe('H');
+    expect(text.childNodes[1].textContent).toBe('2');
+    expect(text.childNodes[2].textContent).toBe('N');
+  });
+
+  test('OH with bond from the left: shifted RIGHT so the O letter sits at the atom position', () => {
     const { mol, id } = molWith('O', [{ order: 1, dx: -14.4 }]);
     const g = makeG();
     const measure = (t: string) => t.length * 6; // fake: 6pt per char
     renderLabel(document, g, mol, mol.atoms.get(id)!, ACS1996, measure);
     const text = g.querySelector('text')!;
     expect(text.textContent).toBe('OH');
-    // shift left by half the width of the trailing 'H'
-    expect(Number(text.getAttribute('x'))).toBeCloseTo(-3);
+    // text 'OH' centered at x: O center = x - width('OH')/2 + width('O')/2 = x - 3
+    // → x = +3 puts the O exactly at the atom position
+    expect(Number(text.getAttribute('x'))).toBeCloseTo(3);
   });
 
-  test('flipped HO with bond to the right: shifted right so O sits at the atom position', () => {
+  test('flipped HO with bond to the right: shifted LEFT so O sits at the atom position', () => {
     const { mol, id } = molWith('O', [{ order: 1, dx: 14.4 }]);
     const g = makeG();
     const measure = (t: string) => t.length * 6;
     renderLabel(document, g, mol, mol.atoms.get(id)!, ACS1996, measure);
     const text = g.querySelector('text')!;
     expect(text.textContent).toBe('HO');
-    expect(Number(text.getAttribute('x'))).toBeCloseTo(3);
+    // O is the second glyph: O center = x + 3 → x = -3
+    expect(Number(text.getAttribute('x'))).toBeCloseTo(-3);
   });
 
   test('single-letter labels are not shifted', () => {

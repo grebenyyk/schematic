@@ -103,7 +103,7 @@ describe('renderDecorations', () => {
   test('labeled (hetero) atom hover outlines the whole label', () => {
     const g = makeG();
     renderDecorations(document, g, [
-      { type: 'hover-atom', pos: vec(5, 5), labeled: true, main: 'NH', hCount: 2, charge: '+' },
+      { type: 'hover-atom', pos: vec(5, 5), labeled: true, element: 'N', h: 2, flipped: false, charge: '+' },
     ], ACS1996);
     const t = g.querySelector('text')!;
     expect(t.textContent).toBe('NH2+');

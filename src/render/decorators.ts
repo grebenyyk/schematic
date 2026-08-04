@@ -3,7 +3,7 @@ import type { Document as MolDocument } from '../core/model/document';
 import { findAtom } from '../core/model/document';
 import { bondsOf } from '../core/model/molecule';
 import type { StyleSheet } from '../core/style/stylesheet';
-import { chargeText, hasVisibleLabel, labelText, makeMeasurer } from './labels';
+import { appendLabelContent, chargeText, hasVisibleLabel, labelText, makeMeasurer } from './labels';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -12,9 +12,10 @@ export type Decoration =
       type: 'hover-atom';
       pos: Vec2;
       labeled: boolean;
-      /** Full label content when labeled: 'OH' + subscript 2 + charge. */
-      main?: string;
-      hCount?: number;
+      /** Label content when labeled (element, H count, flip, charge). */
+      element?: string;
+      h?: number;
+      flipped?: boolean;
       charge?: string;
     }
   | { type: 'hover-bond'; center: Vec2 }
@@ -27,13 +28,14 @@ export function atomHoverDecoration(doc: MolDocument, atomId: number): Decoratio
   const degree = [...bondsOf(mol, atomId)].length;
   const labeled = hasVisibleLabel(loc.atom, degree);
   if (!labeled) return { type: 'hover-atom', pos: loc.atom.pos, labeled };
-  const { main, hCount } = labelText(mol, atomId);
+  const { element, h, flipped } = labelText(mol, atomId);
   return {
     type: 'hover-atom',
     pos: loc.atom.pos,
     labeled,
-    main,
-    hCount,
+    element,
+    h,
+    flipped,
     charge: chargeText(loc.atom.charge),
   };
 }
@@ -46,16 +48,14 @@ export function renderDecorations(
 ): void {
   for (const d of decorations) {
     if (d.type === 'hover-atom') {
-      if (d.labeled && d.main) {
+      if (d.labeled && d.element) {
         // heteroatom: outline the whole label (OH, NH2, charges…),
         // shifted exactly like the real label so they overlay
-        const element = d.main.replace('H', '');
-        const hasH = d.main.includes('H') && d.main.length > element.length;
         let xShift = 0;
-        if (hasH) {
+        if (d.h && d.h > 0) {
           const m = makeMeasurer(style);
-          const hPartWidth = m('H') + (d.hCount && d.hCount > 0 ? m(String(d.hCount), 0.75) : 0);
-          xShift = (d.main.startsWith('H') ? 1 : -1) * (hPartWidth / 2);
+          const hPartWidth = m('H') + (d.h >= 2 ? m(String(d.h), 0.75) : 0);
+          xShift = (d.flipped ? -1 : 1) * (hPartWidth / 2);
         }
         const t = doc.createElementNS(SVG_NS, 'text');
         t.setAttribute('x', String(d.pos.x + xShift));
@@ -67,21 +67,12 @@ export function renderDecorations(
         t.setAttribute('fill', 'none');
         t.setAttribute('stroke', style.colors.hover);
         t.setAttribute('stroke-width', String(style.lineWidthPt));
-        t.textContent = d.main;
-        if (d.hCount && d.hCount > 0) {
-          const sub = doc.createElementNS(SVG_NS, 'tspan');
-          sub.setAttribute('baseline-shift', 'sub');
-          sub.setAttribute('font-size', String(style.labelSizePt * 0.75));
-          sub.textContent = String(d.hCount);
-          t.appendChild(sub);
-        }
-        if (d.charge) {
-          const sup = doc.createElementNS(SVG_NS, 'tspan');
-          sup.setAttribute('baseline-shift', 'super');
-          sup.setAttribute('font-size', String(style.labelSizePt * 0.75));
-          sup.textContent = d.charge;
-          t.appendChild(sup);
-        }
+        appendLabelContent(doc, t, {
+          element: d.element,
+          h: d.h ?? 0,
+          flipped: d.flipped ?? false,
+          charge: d.charge ?? '',
+        }, style);
         group.appendChild(t);
       } else {
         // carbon vertex: circle outline

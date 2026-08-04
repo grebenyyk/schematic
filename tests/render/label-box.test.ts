@@ -30,10 +30,10 @@ describe('labelBox', () => {
     expect(box.halfW).toBeCloseTo(3); // 'O' = 6pt wide
   });
 
-  test('OH (bond left): shifted left of center, wider', () => {
+  test('OH (bond left): shifted right so the O letter sits at the atom position', () => {
     const { mol, id } = molWith('O', 0, [{ deg: 180 }]);
     const box = labelBox(mol, id, ACS1996, measure);
-    expect(box.cx).toBeCloseTo(-3); // shift = -width('H')/2
+    expect(box.cx).toBeCloseTo(3); // +width('H')/2
     expect(box.halfW).toBeCloseTo(6); // 'OH' = 12pt
   });
 
