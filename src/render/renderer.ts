@@ -47,6 +47,27 @@ function updateViewBox(svg: SVGSVGElement, doc: MolDocument, style: StyleSheet):
 }
 
 /**
+ * At a degree-2 junction (a single bond meeting an acyclic double bond,
+ * e.g. mid-chain C=C), the single bond is set back to where it meets the
+ * nearer double line, so the chain reads as one continuous bent stroke.
+ * Returns 0 at sp2 junctions, where singles run to the vertex instead.
+ */
+function junctionSetback(mol: Molecule, bond: Bond, atomId: number, style: StyleSheet): number {
+  if (bond.order !== 1) return 0;
+  const incident = [...bondsOf(mol, atomId)];
+  if (incident.length !== 2) return 0;
+  const halfGap = (style.doubleBondSpacing * style.bondLengthPt) / 2;
+  const otherId = bond.a === atomId ? bond.b : bond.a;
+  const u = norm(sub(mol.atoms.get(otherId)!.pos, mol.atoms.get(atomId)!.pos));
+  const dbl = mol.bonds.get(incident.find((id) => id !== bond.id)!)!;
+  if (dbl.order !== 2 || ringPath(mol, dbl.id) !== null) return 0;
+  const dOtherId = dbl.a === atomId ? dbl.b : dbl.a;
+  const dDir = norm(sub(mol.atoms.get(dOtherId)!.pos, mol.atoms.get(atomId)!.pos));
+  const sin = Math.abs(u.x * dDir.y - u.y * dDir.x);
+  return sin < 1e-9 ? 0 : halfGap / sin;
+}
+
+/**
  * The axis a bond is actually drawn along: trimmed by label clearance at
  * both ends. Shared by the renderer and anything that needs to know where
  * the *drawn* line sits (e.g. hover highlights).
@@ -58,13 +79,16 @@ export function bondRenderAxis(mol: Molecule, bond: Bond, style: StyleSheet): Bo
   const trimEnd = (atomId: number) => {
     const atom = mol.atoms.get(atomId)!;
     const degree = [...bondsOf(mol, atomId)].length;
-    if (!hasVisibleLabel(atom, degree)) return 0;
-    // trim to the whole label box (element + H + charge), plus clearance
-    const otherId = bond.a === atomId ? bond.b : bond.a;
-    const other = mol.atoms.get(otherId)!;
-    const dir = norm(sub(other.pos, atom.pos));
-    const exit = rayRectExit(atom.pos, dir, labelBox(mol, atomId, style));
-    return Math.min(Math.max(exit, 0) + style.marginPt, fullLen / 2);
+    let trim = junctionSetback(mol, bond, atomId, style);
+    if (hasVisibleLabel(atom, degree)) {
+      // trim to the whole label box (element + H + charge), plus clearance
+      const otherId = bond.a === atomId ? bond.b : bond.a;
+      const other = mol.atoms.get(otherId)!;
+      const dir = norm(sub(other.pos, atom.pos));
+      const exit = rayRectExit(atom.pos, dir, labelBox(mol, atomId, style));
+      trim = Math.max(trim, Math.max(exit, 0) + style.marginPt);
+    }
+    return Math.min(trim, fullLen / 2);
   };
   return bondAxis(a.pos, b.pos, trimEnd(bond.a), trimEnd(bond.b));
 }

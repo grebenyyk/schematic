@@ -1,7 +1,9 @@
 import { describe, test, expect } from 'vitest';
-import { vec, sub, norm, type Vec2 } from '../../src/core/geometry/vec2';
+import { vec, sub, norm, dist, type Vec2 } from '../../src/core/geometry/vec2';
 import { ACS1996 } from '../../src/core/style/presets';
 import { bondAxis, doubleBondLines } from '../../src/render/bonds';
+import { bondRenderAxis } from '../../src/render/renderer';
+import { emptyMolecule, addAtom, addBond } from '../../src/core/model/molecule';
 
 const L = ACS1996.bondLengthPt;
 const HALF = (ACS1996.doubleBondSpacing * L) / 2;
@@ -84,5 +86,32 @@ describe('double bond junction: near line meets the single bond, far line keeps 
       expect(Math.abs(v.y)).toBeCloseTo(0);
     }
     expect(Math.abs(l1.p1.y - l2.p1.y)).toBeCloseTo(2 * HALF);
+  });
+
+  test('degree-2 junction (mid-chain C=C): the single bond is set back to the crossing', () => {
+    // –CH=CH– at 120°: single bond from (−L·cos60, −L·sin60) to (0,0), double to (L,0)
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'C', pos: vec(-7.2, -12.47), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 2, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 3, element: 'C', pos: vec(L, 0), charge: 0, hydrogens: null });
+    m = addBond(m, { id: 10, a: 1, b: 2, order: 1, stereo: 'none' });
+    m = addBond(m, { id: 11, a: 2, b: 3, order: 2, stereo: 'none' });
+    const axis = bondRenderAxis(m, m.bonds.get(10)!, ACS1996);
+    // the single bond stops halfGap/sin(120°) short of the vertex
+    const setback = HALF / Math.sin(Math.PI / 3);
+    expect(axis.length).toBeCloseTo(dist(vec(-7.2, -12.47), vec(0, 0)) - setback, 4);
+  });
+
+  test('sp2 junction (C=O): the single bond runs all the way to the vertex', () => {
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'C', pos: vec(-7.2, -12.47), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 2, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 3, element: 'C', pos: vec(-7.2, 12.47), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 4, element: 'O', pos: vec(0, -14.4), charge: 0, hydrogens: null });
+    m = addBond(m, { id: 10, a: 1, b: 2, order: 1, stereo: 'none' });
+    m = addBond(m, { id: 11, a: 2, b: 3, order: 1, stereo: 'none' });
+    m = addBond(m, { id: 12, a: 2, b: 4, order: 2, stereo: 'none' });
+    const axis = bondRenderAxis(m, m.bonds.get(10)!, ACS1996);
+    expect(axis.length).toBeCloseTo(dist(vec(-7.2, -12.47), vec(0, 0)), 4);
   });
 });
