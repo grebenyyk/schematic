@@ -92,6 +92,37 @@ describe('ringDoubleBondLines', () => {
     }
   });
 
+  test('substituted ring (1,2-dimethylcyclohexene): inner line still inside', () => {
+    let m = emptyMolecule();
+    const ids: number[] = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 180) * (90 + i * 60);
+      m = addAtom(m, {
+        id: i + 1, element: 'C',
+        pos: vec(14.4 * Math.cos(a), 14.4 * Math.sin(a)),
+        charge: 0, hydrogens: null,
+      });
+      ids.push(i + 1);
+    }
+    for (let i = 0; i < 6; i++) {
+      m = addBond(m, { id: 10 + i, a: ids[i], b: ids[(i + 1) % 6], order: i === 4 ? 2 : 1, stereo: 'none' });
+    }
+    // methyls on both double-bond endpoints, pointing outward
+    m = addAtom(m, { id: 20, element: 'C', pos: vec(24.9, -14.4), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 21, element: 'C', pos: vec(24.9, 14.4), charge: 0, hydrogens: null });
+    m = addBond(m, { id: 30, a: ids[4], b: 20, order: 1, stereo: 'none' });
+    m = addBond(m, { id: 31, a: ids[5], b: 21, order: 1, stereo: 'none' });
+
+    const bond = m.bonds.get(14)!; // the right-edge double bond
+    const pa = m.atoms.get(bond.a)!.pos;
+    const pb = m.atoms.get(bond.b)!.pos;
+    const axis = bondAxis(pa, pb, 0, 0);
+    const [, inner] = ringDoubleBondLines(axis, ringPath(m, 14)!, ACS1996);
+    // inner line must be to the LEFT of the edge (toward the ring center)
+    expect(inner.p1.x).toBeLessThan(axis.a.x);
+    expect(inner.p2.x).toBeLessThan(axis.b.x);
+  });
+
   test('acyclic double bonds stay symmetric (sanity: existing behavior)', () => {
     const axis = bondAxis(vec(0, 0), vec(14.4, 0), 0, 0);
     const [l1, l2] = doubleBondLines(axis, ACS1996);
