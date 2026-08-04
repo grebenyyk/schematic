@@ -33,10 +33,57 @@ function offsetLine(axis: BondAxis, offset: number): Line {
   return { p1: add(axis.a, o), p2: add(axis.b, o) };
 }
 
-/** Two lines symmetric about the axis, gap = doubleBondSpacing × bondLength. */
-export function doubleBondLines(axis: BondAxis, style: StyleSheet): [Line, Line] {
+const cross = (v: Vec2, w: Vec2): number => v.x * w.y - v.y * w.x;
+
+/**
+ * How far along d from the vertex the line (offset off·n from the vertex)
+ * crosses the ray leaving the vertex along u. Negative = behind the vertex.
+ */
+function crossing(offset: number, normal: Vec2, d: Vec2, u: Vec2): number | null {
+  const denom = cross(d, u);
+  if (Math.abs(denom) < 1e-9) return null; // collinear: no crossing
+  return -(cross({ x: offset * normal.x, y: offset * normal.y }, u)) / denom;
+}
+
+/**
+ * Two lines symmetric about the axis, gap = doubleBondSpacing × bondLength.
+ * adjA/adjB are unit directions of the other bonds leaving each endpoint.
+ * A double-bond line is never drawn across an adjacent single bond: when the
+ * angle is acute, the line is trimmed exactly where it would cross the single
+ * bond's centerline, so the single bond visually splits into the double bond.
+ */
+export function doubleBondLines(
+  axis: BondAxis,
+  style: StyleSheet,
+  adjA: Vec2[] = [],
+  adjB: Vec2[] = [],
+): [Line, Line] {
   const half = (style.doubleBondSpacing * style.bondLengthPt) / 2;
-  return [offsetLine(axis, half), offsetLine(axis, -half)];
+  const lines: [Line, Line] = [offsetLine(axis, half), offsetLine(axis, -half)];
+
+  for (const side of [1, -1] as const) {
+    let trimA = 0;
+    for (const u of adjA) {
+      if (Math.sign(side * (u.x * axis.normal.x + u.y * axis.normal.y)) <= 0) continue;
+      const s = crossing(side * half, axis.normal, axis.dir, u);
+      if (s !== null && s > trimA) trimA = s;
+    }
+    let trimB = 0;
+    const back = { x: -axis.dir.x, y: -axis.dir.y };
+    for (const u of adjB) {
+      if (Math.sign(side * (u.x * axis.normal.x + u.y * axis.normal.y)) <= 0) continue;
+      const s = crossing(side * half, axis.normal, back, u);
+      if (s !== null && s > trimB) trimB = s;
+    }
+    // never let the two ends eat the whole line
+    const maxTrim = Math.max(0, (axis.length - half) / 2);
+    trimA = Math.min(trimA, maxTrim);
+    trimB = Math.min(trimB, maxTrim);
+    const line = lines[side === 1 ? 0 : 1];
+    line.p1 = add(line.p1, scale(axis.dir, trimA));
+    line.p2 = sub(line.p2, scale(axis.dir, trimB));
+  }
+  return lines;
 }
 
 /** Center line plus two outer lines at the full double-bond gap. */
@@ -114,6 +161,7 @@ export function renderBond(
   axis: BondAxis,
   style: StyleSheet,
   ring: Vec2[] | null = null,
+  adjacent: { a: Vec2[]; b: Vec2[] } | null = null,
 ): void {
   const g = doc.createElementNS(SVG_NS, 'g');
   g.setAttribute('class', 'bond');
@@ -128,7 +176,9 @@ export function renderBond(
   } else if (bond.stereo === 'hash' || bond.stereo === 'down') {
     for (const seg of hashSegments(axis, style)) g.appendChild(svgLine(doc, seg, style, w));
   } else if (bond.order === 2) {
-    const lines = ring ? ringDoubleBondLines(axis, ring, style) : doubleBondLines(axis, style);
+    const lines = ring
+      ? ringDoubleBondLines(axis, ring, style)
+      : doubleBondLines(axis, style, adjacent?.a ?? [], adjacent?.b ?? []);
     for (const line of lines) g.appendChild(svgLine(doc, line, style, w));
   } else if (bond.order === 3) {
     for (const line of tripleBondLines(axis, style)) g.appendChild(svgLine(doc, line, style, w));

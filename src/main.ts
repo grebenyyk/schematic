@@ -44,19 +44,19 @@ function showcase(doc: Document, ox: number, oy: number): Document {
     doc = res.doc;
     m = addBond(m, { id: res.id, a, b, order, stereo });
   };
-  // CH3–COOH fragment
+  // CH3–COOH fragment, trigonal 120° at the carbonyl carbon
   const c1 = put('C', 0, 0);
   const c2 = put('C', 14.4, 0);
-  const o1 = put('O', 19.4, -12.5);
-  const o2 = put('O', 28.8, 0);
+  const o1 = put('O', 14.4 + 14.4 * Math.cos(-Math.PI / 3), 14.4 * Math.sin(-Math.PI / 3));
+  const o2 = put('O', 14.4 + 14.4 * Math.cos(Math.PI / 3), 14.4 * Math.sin(Math.PI / 3));
   bond(c1, c2, 1);
   bond(c2, o1, 2);
   bond(c2, o2, 1);
   // alkyne + wedge
-  const c3 = put('C', 0, 30);
-  const c4 = put('C', 14.4, 30);
-  const n1 = put('N', 28.8, 30);
-  const o3 = put('O', 14.4, 42.5);
+  const c3 = put('C', 0, 34);
+  const c4 = put('C', 14.4, 34);
+  const n1 = put('N', 28.8, 34);
+  const o3 = put('O', 14.4, 46.5);
   bond(c3, c4, 1);
   bond(c4, n1, 3);
   bond(c4, o3, 1, 'wedge');

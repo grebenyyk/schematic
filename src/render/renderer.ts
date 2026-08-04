@@ -1,7 +1,8 @@
 import type { Document as MolDocument } from '../core/model/document';
 import { allAtoms } from '../core/model/document';
-import { bondsOf } from '../core/model/molecule';
+import { bondsOf, type Bond, type Molecule } from '../core/model/molecule';
 import { ringPath } from '../core/model/rings';
+import { norm, sub, type Vec2 } from '../core/geometry/vec2';
 import type { StyleSheet } from '../core/style/stylesheet';
 import { bondAxis, renderBond } from './bonds';
 import { hasVisibleLabel, renderLabel } from './labels';
@@ -19,6 +20,18 @@ function layer(dom: Document, svg: SVGSVGElement, cls: string): SVGGElement {
 /** How much to shorten a bond endpoint: clearance where a label sits. */
 function trimFor(labeled: boolean, style: StyleSheet): number {
   return labeled ? style.marginPt + style.labelSizePt * 0.35 : 0;
+}
+
+/** Unit directions of the other bonds leaving an atom (excluding bondId). */
+function adjacentDirections(mol: Molecule, bond: Bond, atomId: number): Vec2[] {
+  const dirs: Vec2[] = [];
+  for (const otherId of bondsOf(mol, atomId)) {
+    if (otherId === bond.id) continue;
+    const other = mol.bonds.get(otherId)!;
+    const neighborId = other.a === atomId ? other.b : other.a;
+    dirs.push(norm(sub(mol.atoms.get(neighborId)!.pos, mol.atoms.get(atomId)!.pos)));
+  }
+  return dirs;
 }
 
 function updateViewBox(svg: SVGSVGElement, doc: MolDocument, style: StyleSheet): void {
@@ -70,7 +83,13 @@ export function renderDocument(
         trimFor(labeled.get(a.id)!, style),
         trimFor(labeled.get(b.id)!, style),
       );
-      renderBond(dom, bondsG, bond, axis, style, bond.order === 2 ? ringPath(mol, bond.id) : null);
+      const adj = bond.order === 2
+        ? {
+            a: adjacentDirections(mol, bond, bond.a),
+            b: adjacentDirections(mol, bond, bond.b),
+          }
+        : null;
+      renderBond(dom, bondsG, bond, axis, style, bond.order === 2 ? ringPath(mol, bond.id) : null, adj);
     }
     for (const atom of mol.atoms.values()) {
       if (labeled.get(atom.id)) renderLabel(dom, labelsG, atom, style);
