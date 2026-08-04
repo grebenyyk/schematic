@@ -52,14 +52,12 @@ function showcase(doc: Document, ox: number, oy: number): Document {
   bond(c1, c2, 1);
   bond(c2, o1, 2);
   bond(c2, o2, 1);
-  // alkyne + wedge
+  // acetonitrile: CH3–C≡N
   const c3 = put('C', 0, 34);
   const c4 = put('C', 14.4, 34);
   const n1 = put('N', 28.8, 34);
-  const o3 = put('O', 14.4, 46.5);
   bond(c3, c4, 1);
   bond(c4, n1, 3);
-  bond(c4, o3, 1);
   return withMolecule(doc, m);
 }
 
