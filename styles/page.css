@@ -33,8 +33,11 @@ body {
   border: 1px solid #d4d4d4;
   border-radius: 4px;
   background: #fff;
-  font-size: 15px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #333;
 }
 
 #toolbar button:disabled {
