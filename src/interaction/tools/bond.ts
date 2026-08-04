@@ -6,6 +6,8 @@ import { findAtom, findBond } from '../../core/model/document';
 import { bondsOf } from '../../core/model/molecule';
 import { hasVisibleLabel } from '../../render/labels';
 import { bondRenderAxis } from '../../render/renderer';
+import { ringPath } from '../../core/model/rings';
+import { ringInwardNormal } from '../../render/bonds';
 import type { Command } from '../../core/commands/command';
 import { CompoundCommand } from '../../core/commands/command';
 import { AddAtom, AddBond, SetBondOrder } from '../../core/commands/ops';
@@ -106,11 +108,20 @@ export class BondTool implements Tool {
       ctx.setDecorations([atomDecoration(ctx, hit.id)]);
     } else {
       const loc = findBond(doc, hit.id)!;
-      const axis = bondRenderAxis(doc.molecules[loc.moleculeIndex], loc.bond, ctx.style);
-      ctx.setDecorations([{
-        type: 'hover-bond',
-        center: { x: (axis.a.x + axis.b.x) / 2, y: (axis.a.y + axis.b.y) / 2 },
-      }]);
+      const mol = doc.molecules[loc.moleculeIndex];
+      const axis = bondRenderAxis(mol, loc.bond, ctx.style);
+      let center = { x: (axis.a.x + axis.b.x) / 2, y: (axis.a.y + axis.b.y) / 2 };
+      // ring double bonds draw on-axis + inner line: the visual center is
+      // half a gap inside the ring
+      if (loc.bond.order === 2) {
+        const path = ringPath(mol, loc.bond.id);
+        if (path) {
+          const inward = ringInwardNormal(axis, path);
+          const halfGap = (ctx.style.doubleBondSpacing * ctx.style.bondLengthPt) / 2;
+          center = add(center, scale(inward, halfGap));
+        }
+      }
+      ctx.setDecorations([{ type: 'hover-bond', center }]);
     }
   }
 

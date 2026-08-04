@@ -233,6 +233,39 @@ describe('BondTool hover', () => {
     }
   });
 
+  test('ring double bond hover dot sits between the two lines (inside the ring)', () => {
+    // benzene
+    let m = emptyMolecule();
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI / 180) * (90 + i * 60);
+      m = addAtom(m, {
+        id: i + 1, element: 'C',
+        pos: vec(14.4 * Math.cos(a), 14.4 * Math.sin(a)),
+        charge: 0, hydrogens: null,
+      });
+    }
+    for (let i = 0; i < 6; i++) {
+      m = addBond(m, {
+        id: 10 + i, a: i + 1, b: ((i + 1) % 6) + 1,
+        order: i % 2 === 0 ? 2 : 1, stereo: 'none',
+      });
+    }
+    const { ctx, state } = makeCtx(withMolecule(createDocument(), m));
+    const tool = new BondTool();
+    // hover the midpoint of bond 10 (atoms 1–2, a double bond at the top-left)
+    const pa = m.atoms.get(1)!.pos, pb = m.atoms.get(2)!.pos;
+    const mid = vec((pa.x + pb.x) / 2, (pa.y + pb.y) / 2);
+    tool.onHover(at(mid.x, mid.y), ctx);
+    const deco = state.decorations.at(-1)![0];
+    expect(deco.type).toBe('hover-bond');
+    if (deco.type === 'hover-bond') {
+      // dot must be between the on-axis line and the inner line:
+      // half the double-bond gap inside the ring (toward the center)
+      const halfGap = (ACS1996.doubleBondSpacing * ACS1996.bondLengthPt) / 2;
+      expect(dist(deco.center, vec(0, 0))).toBeCloseTo(dist(mid, vec(0, 0)) - halfGap, 4);
+    }
+  });
+
   test('existing atoms/bonds are untouched by hover', () => {
     const { ctx, state } = makeCtx(docWithBond());
     const tool = new BondTool();

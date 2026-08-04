@@ -105,6 +105,15 @@ export function tripleBondLines(axis: BondAxis, style: StyleSheet): [Line, Line,
   return [offsetLine(axis, 0), offsetLine(axis, gap), offsetLine(axis, -gap)];
 }
 
+/** Unit vector pointing from the bond axis toward the ring interior. */
+export function ringInwardNormal(axis: BondAxis, path: Vec2[]): Vec2 {
+  const cx = path.reduce((s, p) => s + p.x, 0) / path.length;
+  const cy = path.reduce((s, p) => s + p.y, 0) / path.length;
+  const mid = { x: (axis.a.x + axis.b.x) / 2, y: (axis.a.y + axis.b.y) / 2 };
+  const sign = (cx - mid.x) * axis.normal.x + (cy - mid.y) * axis.normal.y > 0 ? 1 : -1;
+  return { x: sign * axis.normal.x, y: sign * axis.normal.y };
+}
+
 /**
  * Ring double bond: one line on the axis, the second offset by the full
  * spacing toward the ring interior (the side the ring path lies on).
@@ -114,12 +123,13 @@ export function ringDoubleBondLines(
   path: Vec2[],
   style: StyleSheet,
 ): [Line, Line] {
-  const cx = path.reduce((s, p) => s + p.x, 0) / path.length;
-  const cy = path.reduce((s, p) => s + p.y, 0) / path.length;
-  const mid = { x: (axis.a.x + axis.b.x) / 2, y: (axis.a.y + axis.b.y) / 2 };
-  const inward = (cx - mid.x) * axis.normal.x + (cy - mid.y) * axis.normal.y > 0 ? 1 : -1;
+  const inward = ringInwardNormal(axis, path);
   const gap = style.doubleBondSpacing * style.bondLengthPt;
-  return [offsetLine(axis, 0), offsetLine(axis, inward * gap)];
+  const inner = {
+    p1: add(axis.a, scale(inward, gap)),
+    p2: add(axis.b, scale(inward, gap)),
+  };
+  return [{ p1: axis.a, p2: axis.b }, inner];
 }
 
 /** Stereo wedge: wide end (boldWidthPt) at a, tip at b. */
