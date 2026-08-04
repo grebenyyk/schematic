@@ -45,6 +45,15 @@ describe('defaultBondDirection', () => {
     expect(deg(defaultBondDirection(m, 2))).toBeCloseTo(300);
   });
 
+  test('sp center (triple bond): new bond continues linearly', () => {
+    // H–C≡N: clicking the carbon adds the methyl straight (180° to C≡N)
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 2, element: 'N', pos: vec(14.4, 0), charge: 0, hydrogens: null });
+    m = addBond(m, { id: 100, a: 1, b: 2, order: 3, stereo: 'none' });
+    expect(deg(defaultBondDirection(m, 1))).toBeCloseTo(180);
+  });
+
   test('result is always a unit vector snapped to 15°', () => {
     const m = molWith([[0, 0], [14.4, 3]], [[0, 1]]);
     const d = defaultBondDirection(m, 2);

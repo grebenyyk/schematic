@@ -65,6 +65,8 @@ export function defaultBondDirection(mol: Molecule, atomId: number): Vec2 {
     const neighborId = bond.a === atomId ? bond.b : bond.a;
     // direction neighbor → clicked atom
     const prevDir = angle(sub(atom.pos, mol.atoms.get(neighborId)!.pos));
+    // sp center: the new bond continues linearly, no zigzag
+    if (bond.order === 3) return snap15(prevDir);
     // directions of the neighbor's other bonds (excluding the one to atomId)
     const otherDirs: number[] = [];
     for (const nbId of bondsOf(mol, neighborId)) {
