@@ -36,6 +36,19 @@ function offsetLine(axis: BondAxis, offset: number): Line {
 const cross = (v: Vec2, w: Vec2): number => v.x * w.y - v.y * w.x;
 
 /**
+ * How far short of a double-bond junction a single bond should stop, so its
+ * end meets the extension of the nearer double-bond line (the ChemDraw
+ * "fork"). u: unit direction from the junction atom along the single bond;
+ * d: unit direction of the double bond leaving the same atom.
+ * Null when the single bond is collinear with the double bond.
+ */
+export function singleBondJunctionSetback(u: Vec2, d: Vec2, halfGap: number): number | null {
+  const s = Math.abs(cross(u, d));
+  if (s < 1e-9) return null;
+  return halfGap / s;
+}
+
+/**
  * How far along d from the vertex the line (offset off·n from the vertex)
  * crosses the ray leaving the vertex along u. Negative = behind the vertex.
  */

@@ -59,7 +59,7 @@ function showcase(doc: Document, ox: number, oy: number): Document {
   const o3 = put('O', 14.4, 46.5);
   bond(c3, c4, 1);
   bond(c4, n1, 3);
-  bond(c4, o3, 1, 'wedge');
+  bond(c4, o3, 1);
   return withMolecule(doc, m);
 }
 

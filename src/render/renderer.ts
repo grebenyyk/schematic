@@ -4,7 +4,7 @@ import { bondsOf, type Bond, type Molecule } from '../core/model/molecule';
 import { ringPath } from '../core/model/rings';
 import { norm, sub, type Vec2 } from '../core/geometry/vec2';
 import type { StyleSheet } from '../core/style/stylesheet';
-import { bondAxis, renderBond } from './bonds';
+import { bondAxis, renderBond, singleBondJunctionSetback } from './bonds';
 import { hasVisibleLabel, renderLabel } from './labels';
 import { renderDecorations, type Decoration } from './decorators';
 
@@ -32,6 +32,28 @@ function adjacentDirections(mol: Molecule, bond: Bond, atomId: number): Vec2[] {
     dirs.push(norm(sub(mol.atoms.get(neighborId)!.pos, mol.atoms.get(atomId)!.pos)));
   }
   return dirs;
+}
+
+/**
+ * How far short of a junction with an acyclic double bond this single bond
+ * should stop at the given endpoint (the ChemDraw "fork").
+ */
+function junctionSetback(mol: Molecule, bond: Bond, atomId: number, style: StyleSheet): number {
+  if (bond.order !== 1) return 0;
+  const halfGap = (style.doubleBondSpacing * style.bondLengthPt) / 2;
+  const otherId = bond.a === atomId ? bond.b : bond.a;
+  const u = norm(sub(mol.atoms.get(otherId)!.pos, mol.atoms.get(atomId)!.pos));
+  let setback = 0;
+  for (const bondId of bondsOf(mol, atomId)) {
+    if (bondId === bond.id) continue;
+    const d = mol.bonds.get(bondId)!;
+    if (d.order !== 2 || ringPath(mol, d.id) !== null) continue;
+    const dOtherId = d.a === atomId ? d.b : d.a;
+    const dDir = norm(sub(mol.atoms.get(dOtherId)!.pos, mol.atoms.get(atomId)!.pos));
+    const s = singleBondJunctionSetback(u, dDir, halfGap);
+    if (s !== null && s > setback) setback = s;
+  }
+  return setback;
 }
 
 function updateViewBox(svg: SVGSVGElement, doc: MolDocument, style: StyleSheet): void {
@@ -78,11 +100,16 @@ export function renderDocument(
     for (const bond of mol.bonds.values()) {
       const a = mol.atoms.get(bond.a)!;
       const b = mol.atoms.get(bond.b)!;
-      const axis = bondAxis(
-        a.pos, b.pos,
-        trimFor(labeled.get(a.id)!, style),
-        trimFor(labeled.get(b.id)!, style),
-      );
+      const fullLen = Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y);
+      const trimEnd = (atomId: number) =>
+        Math.min(
+          Math.max(
+            trimFor(labeled.get(atomId)!, style),
+            junctionSetback(mol, bond, atomId, style),
+          ),
+          fullLen / 2,
+        );
+      const axis = bondAxis(a.pos, b.pos, trimEnd(bond.a), trimEnd(bond.b));
       const adj = bond.order === 2
         ? {
             a: adjacentDirections(mol, bond, bond.a),
