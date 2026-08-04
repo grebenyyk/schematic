@@ -3,7 +3,7 @@ import type { Document as MolDocument } from '../core/model/document';
 import { findAtom } from '../core/model/document';
 import { bondsOf } from '../core/model/molecule';
 import type { StyleSheet } from '../core/style/stylesheet';
-import { appendLabelContent, chargeText, hasVisibleLabel, labelText, makeMeasurer } from './labels';
+import { appendLabelContent, chargeText, hasVisibleLabel, labelBox, labelText } from './labels';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -12,6 +12,8 @@ export type Decoration =
       type: 'hover-atom';
       pos: Vec2;
       labeled: boolean;
+      /** Rendered label center when labeled (from labelBox). */
+      cx?: number;
       /** Label content when labeled (element, H count, flip, charge). */
       element?: string;
       h?: number;
@@ -22,7 +24,7 @@ export type Decoration =
   | { type: 'snap-guide'; from: Vec2; to: Vec2 };
 
 /** Hover/merge highlight for an atom: full-label outline when labeled, circle otherwise. */
-export function atomHoverDecoration(doc: MolDocument, atomId: number): Decoration {
+export function atomHoverDecoration(doc: MolDocument, atomId: number, style: StyleSheet): Decoration {
   const loc = findAtom(doc, atomId)!;
   const mol = doc.molecules[loc.moleculeIndex];
   const degree = [...bondsOf(mol, atomId)].length;
@@ -33,6 +35,7 @@ export function atomHoverDecoration(doc: MolDocument, atomId: number): Decoratio
     type: 'hover-atom',
     pos: loc.atom.pos,
     labeled,
+    cx: labelBox(mol, atomId, style).cx,
     element,
     h,
     flipped,
@@ -50,18 +53,9 @@ export function renderDecorations(
     if (d.type === 'hover-atom') {
       if (d.labeled && d.element) {
         // heteroatom: outline the whole label (OH, NH2, charges…),
-        // shifted exactly like the real label so they overlay
-        let xShift = 0;
-        {
-          const m = makeMeasurer(style);
-          const hWidth = d.h && d.h > 0 ? m('H') + (d.h >= 2 ? m(String(d.h), 0.75) : 0) : 0;
-          const chargeWidth = d.charge ? m(d.charge, 0.75) : 0;
-          const leftW = d.flipped ? hWidth : 0;
-          const rightW = (d.flipped ? 0 : hWidth) + chargeWidth;
-          xShift = (rightW - leftW) / 2;
-        }
+        // centered exactly where the real label sits
         const t = doc.createElementNS(SVG_NS, 'text');
-        t.setAttribute('x', String(d.pos.x + xShift));
+        t.setAttribute('x', String(d.cx ?? d.pos.x));
         t.setAttribute('y', String(d.pos.y));
         t.setAttribute('text-anchor', 'middle');
         t.setAttribute('dominant-baseline', 'central');

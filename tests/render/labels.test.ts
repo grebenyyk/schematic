@@ -60,6 +60,12 @@ describe('labelText', () => {
     const { mol, id } = molWith('N', [{ order: 1, dx: -14.4 }, { order: 1, dx: 7.2 }]);
     expect(labelText(mol, id).flipped).toBe(false);
   });
+
+  test('flip is tracked even with no H (for charge placement)', () => {
+    // O⁻ with bond to the right: flipped, so the charge renders on the left
+    const { mol, id } = molWith('O', [{ order: 1, dx: 14.4 }], -1);
+    expect(labelText(mol, id)).toEqual({ element: 'O', h: 0, flipped: true });
+  });
 });
 
 describe('renderLabel H counts', () => {
@@ -91,6 +97,16 @@ describe('renderLabel H counts', () => {
     expect(text.childNodes[0].textContent).toBe('H');
     expect(text.childNodes[1].textContent).toBe('2');
     expect(text.childNodes[2].textContent).toBe('N');
+  });
+
+  test('charge goes where the H was: flipped O⁻ renders ⁻O', () => {
+    const { mol, id } = molWith('O', [{ order: 1, dx: 14.4 }], -1);
+    const g = makeG();
+    renderLabel(document, g, mol, mol.atoms.get(id)!, ACS1996);
+    const text = g.querySelector('text')!;
+    expect(text.textContent).toBe('−O');
+    expect(text.childNodes[0].textContent).toBe('−');
+    expect(text.childNodes[1].textContent).toBe('O');
   });
 
   test('OH with bond from the left: shifted RIGHT so the O letter sits at the atom position', () => {

@@ -63,7 +63,7 @@ export class BondTool implements Tool {
         : snapBondPoint(anchor, e.pos, ctx.style.bondLengthPt, ANGLE_STEP_DEG, ctx.style.bondLengthPt * 0.25);
 
     const decorations: Decoration[] = [{ type: 'snap-guide', from: anchor, to: this.endPos }];
-    if (this.mergeAtom !== null) decorations.push(atomHoverDecoration(ctx.document, this.mergeAtom));
+    if (this.mergeAtom !== null) decorations.push(atomHoverDecoration(ctx.document, this.mergeAtom, ctx.style));
     ctx.setDecorations(decorations);
   }
 
@@ -105,7 +105,7 @@ export class BondTool implements Tool {
     if (!hit) {
       ctx.setDecorations([]);
     } else if (hit.kind === 'atom') {
-      ctx.setDecorations([atomHoverDecoration(ctx.document, hit.id)]);
+      ctx.setDecorations([atomHoverDecoration(ctx.document, hit.id, ctx.style)]);
     } else {
       const loc = findBond(doc, hit.id)!;
       const mol = doc.molecules[loc.moleculeIndex];

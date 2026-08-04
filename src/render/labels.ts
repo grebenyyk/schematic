@@ -30,17 +30,21 @@ export interface LabelContent {
 export function labelText(mol: Molecule, atomId: number): LabelContent {
   const atom = mol.atoms.get(atomId)!;
   const h = implicitHydrogens(mol, atomId);
-  // H's go on the side the bonds lean AWAY from, so bonds visually attach to
-  // the element letter, not the hydrogens. Ties (or vertical bonds): H right.
+  // H's — and, when there are no H's, charges — go on the side the bonds
+  // lean AWAY from, so bonds visually attach to the element letter.
+  // Tolerance: a vertical bond is a tie (decorations right), not a lean.
   let lean = 0;
   for (const bondId of bondsOf(mol, atomId)) {
     const bond = mol.bonds.get(bondId)!;
     const otherId = bond.a === atomId ? bond.b : bond.a;
     lean += mol.atoms.get(otherId)!.pos.x - atom.pos.x;
   }
-  // tolerance: a vertical bond is a tie (H right), not a rightward lean
-  const flipped = h > 0 && lean > 1e-6;
-  return { element: atom.element, h, flipped };
+  return { element: atom.element, h, flipped: lean > 1e-6 };
+}
+
+/** True when the charge superscript belongs on the LEFT (where the H was). */
+export function chargeOnLeft(content: LabelContent, charge: string): boolean {
+  return charge !== '' && content.h === 0 && content.flipped;
 }
 
 /**
@@ -61,6 +65,18 @@ export function appendLabelContent(
     el.textContent = t;
     text.appendChild(el);
   };
+  const sup = (t: string) => {
+    const el = doc.createElementNS(SVG_NS, 'tspan');
+    el.setAttribute('baseline-shift', 'super');
+    el.setAttribute('font-size', String(style.labelSizePt * 0.75));
+    el.textContent = t;
+    text.appendChild(el);
+  };
+  if (chargeOnLeft(content, charge)) {
+    sup(charge);
+    text.appendChild(doc.createTextNode(element));
+    return;
+  }
   if (flipped && h > 0) {
     text.textContent = 'H';
     if (h >= 2) sub(String(h));
@@ -69,13 +85,7 @@ export function appendLabelContent(
     text.textContent = element + (h > 0 ? 'H' : '');
     if (h >= 2) sub(String(h));
   }
-  if (charge) {
-    const sup = doc.createElementNS(SVG_NS, 'tspan');
-    sup.setAttribute('baseline-shift', 'super');
-    sup.setAttribute('font-size', String(style.labelSizePt * 0.75));
-    sup.textContent = charge;
-    text.appendChild(sup);
-  }
+  if (charge) sup(charge);
 }
 
 export function labelColor(atom: Atom, style: StyleSheet): string {
@@ -126,10 +136,11 @@ export function labelBox(
   const charge = chargeText(atom.charge);
   const hWidth = h > 0 ? m('H') + (h >= 2 ? m(String(h), 0.75) : 0) : 0;
   const chargeWidth = charge ? m(charge, 0.75) : 0;
-  // the element letter NEVER moves: H's extend left (flipped) or right,
-  // the charge extends right; the box centers around those parts
-  const leftW = flipped ? hWidth : 0;
-  const rightW = (flipped ? 0 : hWidth) + chargeWidth;
+  // the element letter NEVER moves: H's extend to their side, and the
+  // charge extends to the side the H's were on
+  const onLeft = chargeOnLeft({ element, h, flipped }, charge);
+  const leftW = (flipped ? hWidth : 0) + (onLeft ? chargeWidth : 0);
+  const rightW = (flipped ? 0 : hWidth) + (onLeft ? 0 : chargeWidth);
   const width = m(element) + hWidth + chargeWidth;
   return {
     cx: atom.pos.x + (rightW - leftW) / 2,
@@ -201,8 +212,9 @@ export function labelBoxes(
   ];
   if (charge) {
     const cw = m(charge, 0.75);
+    const onLeft = chargeOnLeft({ element, h, flipped }, charge);
     boxes.push({
-      cx: mainCx + mainHalfW + cw / 2,
+      cx: onLeft ? mainCx - mainHalfW - cw / 2 : mainCx + mainHalfW + cw / 2,
       cy: atom.pos.y,
       halfW: cw / 2,
       halfHUp: style.labelSizePt * 0.73,

@@ -34,7 +34,7 @@ export class ChainTool implements Tool {
     if (this.anchor) return; // mid-gesture; decorations driven by onMove
     const hit = pick(ctx.document, e.pos, { atomRadius: ATOM_RADIUS, bondTolerance: 3 });
     ctx.setDecorations(
-      hit?.kind === 'atom' ? [atomHoverDecoration(ctx.document, hit.id)] : [],
+      hit?.kind === 'atom' ? [atomHoverDecoration(ctx.document, hit.id, ctx.style)] : [],
     );
   }
 
@@ -63,7 +63,7 @@ export class ChainTool implements Tool {
       decorations.push({ type: 'snap-guide', from: this.points[i - 1], to: this.points[i] });
     }
     if (this.mergeAtom !== null) {
-      decorations.push(atomHoverDecoration(ctx.document, this.mergeAtom));
+      decorations.push(atomHoverDecoration(ctx.document, this.mergeAtom, ctx.style));
     }
     ctx.setDecorations(decorations);
   }
