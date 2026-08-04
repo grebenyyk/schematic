@@ -1,12 +1,42 @@
 import type { Vec2 } from '../core/geometry/vec2';
+import type { Document as MolDocument } from '../core/model/document';
+import { findAtom } from '../core/model/document';
+import { bondsOf } from '../core/model/molecule';
 import type { StyleSheet } from '../core/style/stylesheet';
+import { chargeText, hasVisibleLabel, labelText } from './labels';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 export type Decoration =
-  | { type: 'hover-atom'; pos: Vec2; labeled: boolean; element?: string }
+  | {
+      type: 'hover-atom';
+      pos: Vec2;
+      labeled: boolean;
+      /** Full label content when labeled: 'OH' + subscript 2 + charge. */
+      main?: string;
+      hCount?: number;
+      charge?: string;
+    }
   | { type: 'hover-bond'; center: Vec2 }
   | { type: 'snap-guide'; from: Vec2; to: Vec2 };
+
+/** Hover/merge highlight for an atom: full-label outline when labeled, circle otherwise. */
+export function atomHoverDecoration(doc: MolDocument, atomId: number): Decoration {
+  const loc = findAtom(doc, atomId)!;
+  const mol = doc.molecules[loc.moleculeIndex];
+  const degree = [...bondsOf(mol, atomId)].length;
+  const labeled = hasVisibleLabel(loc.atom, degree);
+  if (!labeled) return { type: 'hover-atom', pos: loc.atom.pos, labeled };
+  const { main, hCount } = labelText(mol, atomId);
+  return {
+    type: 'hover-atom',
+    pos: loc.atom.pos,
+    labeled,
+    main,
+    hCount,
+    charge: chargeText(loc.atom.charge),
+  };
+}
 
 export function renderDecorations(
   doc: Document,
@@ -16,8 +46,8 @@ export function renderDecorations(
 ): void {
   for (const d of decorations) {
     if (d.type === 'hover-atom') {
-      if (d.labeled && d.element) {
-        // heteroatom: outline the label letter itself
+      if (d.labeled && d.main) {
+        // heteroatom: outline the whole label (OH, NH2, charges…)
         const t = doc.createElementNS(SVG_NS, 'text');
         t.setAttribute('x', String(d.pos.x));
         t.setAttribute('y', String(d.pos.y));
@@ -28,7 +58,21 @@ export function renderDecorations(
         t.setAttribute('fill', 'none');
         t.setAttribute('stroke', style.colors.hover);
         t.setAttribute('stroke-width', String(style.lineWidthPt));
-        t.textContent = d.element;
+        t.textContent = d.main;
+        if (d.hCount && d.hCount > 0) {
+          const sub = doc.createElementNS(SVG_NS, 'tspan');
+          sub.setAttribute('baseline-shift', 'sub');
+          sub.setAttribute('font-size', String(style.labelSizePt * 0.75));
+          sub.textContent = String(d.hCount);
+          t.appendChild(sub);
+        }
+        if (d.charge) {
+          const sup = doc.createElementNS(SVG_NS, 'tspan');
+          sup.setAttribute('baseline-shift', 'super');
+          sup.setAttribute('font-size', String(style.labelSizePt * 0.75));
+          sup.textContent = d.charge;
+          t.appendChild(sup);
+        }
         group.appendChild(t);
       } else {
         // carbon vertex: circle outline

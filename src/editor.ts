@@ -148,6 +148,7 @@ export class Editor implements ToolContext {
       this.commit(new AddAtom(
         { id, element, pos: this.lastPointer.pos, charge: 0, hydrogens: null }, null));
     }
+    this.refreshHover();
   }
 
   private applyCharge(delta: number): void {
@@ -156,6 +157,12 @@ export class Editor implements ToolContext {
     if (hit?.kind !== 'atom') return;
     const atom = findAtom(this.document, hit.id)!.atom;
     this.commit(new SetCharge(hit.id, atom.charge + delta));
+    this.refreshHover();
+  }
+
+  /** Recompute the hover decoration after keyboard-driven document changes. */
+  private refreshHover(): void {
+    if (this.lastPointer) this.tool.onHover?.(this.lastPointer, this);
   }
 
   private attachKeyboard(): void {

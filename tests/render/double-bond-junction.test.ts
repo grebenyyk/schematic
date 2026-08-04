@@ -66,13 +66,14 @@ describe('double bond junction: near line meets the single bond, far line keeps 
     expect(far.p2.x).toBeCloseTo(L);
   });
 
-  test('sp2 center (two single bonds): no adjustment — everything converges at the vertex', () => {
+  test('sp2 center: each double line extends back to touch its single bond', () => {
     const [up, down] = doubleBondLines(axis(), ACS1996, [dir(120), dir(-120)], []);
-    // both lines start at the vertex plane; the single bonds run to the vertex
-    expect(up.p1.x).toBeCloseTo(0);
-    expect(up.p1.y).toBeCloseTo(HALF);
-    expect(down.p1.x).toBeCloseTo(0);
-    expect(down.p1.y).toBeCloseTo(-HALF);
+    // each line starts exactly on its single bond's centerline (extended back)
+    for (const [line, u] of [[up, dir(120)], [down, dir(-120)]] as const) {
+      const t = onRay(line.p1, u);
+      expect(t).toBeCloseTo(HALF / Math.sin(120 * d2r), 5);
+      expect(line.p1.x).toBeLessThan(0);
+    }
   });
 
   test('adjusted lines remain parallel to the axis and correctly offset', () => {

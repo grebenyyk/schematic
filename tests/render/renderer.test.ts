@@ -100,15 +100,19 @@ describe('renderDecorations', () => {
     expect(c.getAttribute('stroke')).toBe(ACS1996.colors.hover);
   });
 
-  test('labeled (hetero) atom hover draws the letter outline', () => {
+  test('labeled (hetero) atom hover outlines the whole label', () => {
     const g = makeG();
     renderDecorations(document, g, [
-      { type: 'hover-atom', pos: vec(5, 5), labeled: true, element: 'O' },
+      { type: 'hover-atom', pos: vec(5, 5), labeled: true, main: 'NH', hCount: 2, charge: '+' },
     ], ACS1996);
     const t = g.querySelector('text')!;
-    expect(t.textContent).toBe('O');
+    expect(t.textContent).toBe('NH2+');
     expect(t.getAttribute('fill')).toBe('none');
     expect(t.getAttribute('stroke')).toBe(ACS1996.colors.hover);
+    const sub = [...t.querySelectorAll('tspan')].find((x) => x.getAttribute('baseline-shift') === 'sub');
+    const sup = [...t.querySelectorAll('tspan')].find((x) => x.getAttribute('baseline-shift') === 'super');
+    expect(sub?.textContent).toBe('2');
+    expect(sup?.textContent).toBe('+');
     expect(g.querySelector('circle')).toBeNull();
   });
 

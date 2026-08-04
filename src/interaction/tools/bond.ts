@@ -3,15 +3,13 @@ import { pick } from '../../core/geometry/hit';
 import { mergeTarget, snapBondPoint } from '../../core/geometry/snapping';
 import { defaultBondDirection } from '../../core/geometry/chain';
 import { findAtom, findBond } from '../../core/model/document';
-import { bondsOf } from '../../core/model/molecule';
-import { hasVisibleLabel } from '../../render/labels';
 import { bondRenderAxis } from '../../render/renderer';
 import { ringPath } from '../../core/model/rings';
 import { ringInwardNormal } from '../../render/bonds';
 import type { Command } from '../../core/commands/command';
 import { CompoundCommand } from '../../core/commands/command';
 import { AddAtom, AddBond, SetBondOrder } from '../../core/commands/ops';
-import type { Decoration } from '../../render/decorators';
+import { atomHoverDecoration, type Decoration } from '../../render/decorators';
 import type { PointerInfo, Tool, ToolContext } from '../tools';
 
 const ATOM_RADIUS = 5;
@@ -19,17 +17,6 @@ const BOND_TOLERANCE = 3;
 const MERGE_RADIUS = 5;
 const CLICK_THRESHOLD = 2;
 const ANGLE_STEP_DEG = 15;
-
-/** Hover/merge highlight for an atom: letter outline when labeled, circle otherwise. */
-function atomDecoration(ctx: ToolContext, atomId: number): Decoration {
-  const doc = ctx.document;
-  const loc = findAtom(doc, atomId)!;
-  const degree = [...bondsOf(doc.molecules[loc.moleculeIndex], atomId)].length;
-  const labeled = hasVisibleLabel(loc.atom, degree);
-  const deco: Decoration = { type: 'hover-atom', pos: loc.atom.pos, labeled };
-  if (labeled) deco.element = loc.atom.element;
-  return deco;
-}
 
 /**
  * The "everything tool": click-drag draws a bond (from empty space or an
@@ -71,7 +58,7 @@ export class BondTool implements Tool {
         : snapBondPoint(anchor, e.pos, ctx.style.bondLengthPt, ANGLE_STEP_DEG, ctx.style.bondLengthPt * 0.25);
 
     const decorations: Decoration[] = [{ type: 'snap-guide', from: anchor, to: this.endPos }];
-    if (this.mergeAtom !== null) decorations.push(atomDecoration(ctx, this.mergeAtom));
+    if (this.mergeAtom !== null) decorations.push(atomHoverDecoration(ctx.document, this.mergeAtom));
     ctx.setDecorations(decorations);
   }
 
@@ -105,7 +92,7 @@ export class BondTool implements Tool {
     if (!hit) {
       ctx.setDecorations([]);
     } else if (hit.kind === 'atom') {
-      ctx.setDecorations([atomDecoration(ctx, hit.id)]);
+      ctx.setDecorations([atomHoverDecoration(ctx.document, hit.id)]);
     } else {
       const loc = findBond(doc, hit.id)!;
       const mol = doc.molecules[loc.moleculeIndex];

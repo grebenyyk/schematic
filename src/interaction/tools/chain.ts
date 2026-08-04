@@ -5,9 +5,7 @@ import { chainPoints } from '../../core/geometry/chain';
 import { findAtom } from '../../core/model/document';
 import { CompoundCommand, type Command } from '../../core/commands/command';
 import { AddAtom, AddBond } from '../../core/commands/ops';
-import { bondsOf } from '../../core/model/molecule';
-import { hasVisibleLabel } from '../../render/labels';
-import type { Decoration } from '../../render/decorators';
+import { atomHoverDecoration, type Decoration } from '../../render/decorators';
 import type { PointerInfo, Tool, ToolContext } from '../tools';
 
 const ATOM_RADIUS = 5;
@@ -30,6 +28,14 @@ export class ChainTool implements Tool {
       : e.pos;
     this.points = [];
     this.mergeAtom = null;
+  }
+
+  onHover(e: PointerInfo, ctx: ToolContext): void {
+    if (this.anchor) return; // mid-gesture; decorations driven by onMove
+    const hit = pick(ctx.document, e.pos, { atomRadius: ATOM_RADIUS, bondTolerance: 3 });
+    ctx.setDecorations(
+      hit?.kind === 'atom' ? [atomHoverDecoration(ctx.document, hit.id)] : [],
+    );
   }
 
   onMove(e: PointerInfo, ctx: ToolContext): void {
@@ -57,12 +63,7 @@ export class ChainTool implements Tool {
       decorations.push({ type: 'snap-guide', from: this.points[i - 1], to: this.points[i] });
     }
     if (this.mergeAtom !== null) {
-      const loc = findAtom(ctx.document, this.mergeAtom)!;
-      const degree = [...bondsOf(ctx.document.molecules[loc.moleculeIndex], this.mergeAtom)].length;
-      const labeled = hasVisibleLabel(loc.atom, degree);
-      const deco: Decoration = { type: 'hover-atom', pos: loc.atom.pos, labeled };
-      if (labeled) deco.element = loc.atom.element;
-      decorations.push(deco);
+      decorations.push(atomHoverDecoration(ctx.document, this.mergeAtom));
     }
     ctx.setDecorations(decorations);
   }

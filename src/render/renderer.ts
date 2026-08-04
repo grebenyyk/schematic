@@ -4,7 +4,7 @@ import { bondsOf, type Bond, type Molecule } from '../core/model/molecule';
 import { ringPath } from '../core/model/rings';
 import { norm, sub, type Vec2 } from '../core/geometry/vec2';
 import type { StyleSheet } from '../core/style/stylesheet';
-import { bondAxis, renderBond, singleBondJunctionSetback, type BondAxis } from './bonds';
+import { bondAxis, renderBond, type BondAxis } from './bonds';
 import { hasVisibleLabel, renderLabel } from './labels';
 import { renderDecorations, type Decoration } from './decorators';
 
@@ -34,33 +34,6 @@ function adjacentDirections(mol: Molecule, bond: Bond, atomId: number): Vec2[] {
   return dirs;
 }
 
-/**
- * How far short of a degree-2 junction with an acyclic double bond this
- * single bond should stop at the given endpoint, so its end meets the
- * nearer double line (the gapless bend). At sp2 junctions (two single
- * bonds + a double bond) there is no setback — everything converges at
- * the vertex instead.
- */
-function junctionSetback(mol: Molecule, bond: Bond, atomId: number, style: StyleSheet): number {
-  if (bond.order !== 1) return 0;
-  const incident = [...bondsOf(mol, atomId)];
-  if (incident.length !== 2) return 0;
-  const halfGap = (style.doubleBondSpacing * style.bondLengthPt) / 2;
-  const otherId = bond.a === atomId ? bond.b : bond.a;
-  const u = norm(sub(mol.atoms.get(otherId)!.pos, mol.atoms.get(atomId)!.pos));
-  let setback = 0;
-  for (const bondId of incident) {
-    if (bondId === bond.id) continue;
-    const d = mol.bonds.get(bondId)!;
-    if (d.order !== 2 || ringPath(mol, d.id) !== null) continue;
-    const dOtherId = d.a === atomId ? d.b : d.a;
-    const dDir = norm(sub(mol.atoms.get(dOtherId)!.pos, mol.atoms.get(atomId)!.pos));
-    const s = singleBondJunctionSetback(u, dDir, halfGap);
-    if (s !== null && s > setback) setback = s;
-  }
-  return setback;
-}
-
 function updateViewBox(svg: SVGSVGElement, doc: MolDocument, style: StyleSheet): void {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const a of allAtoms(doc)) {
@@ -79,9 +52,9 @@ function updateViewBox(svg: SVGSVGElement, doc: MolDocument, style: StyleSheet):
 }
 
 /**
- * The axis a bond is actually drawn along: trimmed by label clearance and
- * junction setbacks at both ends. Shared by the renderer and anything that
- * needs to know where the *drawn* line sits (e.g. hover highlights).
+ * The axis a bond is actually drawn along: trimmed by label clearance at
+ * both ends. Shared by the renderer and anything that needs to know where
+ * the *drawn* line sits (e.g. hover highlights).
  */
 export function bondRenderAxis(mol: Molecule, bond: Bond, style: StyleSheet): BondAxis {
   const a = mol.atoms.get(bond.a)!;
@@ -90,13 +63,7 @@ export function bondRenderAxis(mol: Molecule, bond: Bond, style: StyleSheet): Bo
   const trimEnd = (atomId: number) => {
     const atom = mol.atoms.get(atomId)!;
     const degree = [...bondsOf(mol, atomId)].length;
-    return Math.min(
-      Math.max(
-        trimFor(hasVisibleLabel(atom, degree), style),
-        junctionSetback(mol, bond, atomId, style),
-      ),
-      fullLen / 2,
-    );
+    return Math.min(trimFor(hasVisibleLabel(atom, degree), style), fullLen / 2);
   };
   return bondAxis(a.pos, b.pos, trimEnd(bond.a), trimEnd(bond.b));
 }

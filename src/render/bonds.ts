@@ -36,19 +36,6 @@ function offsetLine(axis: BondAxis, offset: number): Line {
 const cross = (v: Vec2, w: Vec2): number => v.x * w.y - v.y * w.x;
 
 /**
- * How far short of a double-bond junction a single bond should stop, so its
- * end meets the extension of the nearer double-bond line (the ChemDraw
- * "fork"). u: unit direction from the junction atom along the single bond;
- * d: unit direction of the double bond leaving the same atom.
- * Null when the single bond is collinear with the double bond.
- */
-export function singleBondJunctionSetback(u: Vec2, d: Vec2, halfGap: number): number | null {
-  const s = Math.abs(cross(u, d));
-  if (s < 1e-9) return null;
-  return halfGap / s;
-}
-
-/**
  * How far along d from the vertex the line (offset off·n from the vertex)
  * crosses the ray leaving the vertex along u. Negative = behind the vertex.
  */
@@ -61,11 +48,10 @@ function crossing(offset: number, normal: Vec2, d: Vec2, u: Vec2): number | null
 /**
  * Two lines symmetric about the axis, gap = doubleBondSpacing × bondLength.
  * adjA/adjB are unit directions of the other bonds leaving each endpoint.
- * Junction convention: at a degree-2 junction (exactly one adjacent single
- * bond) the line on that bond's side is extended or trimmed to start exactly
- * where it meets the bond's centerline (no gap), while the other line keeps
- * its gap. At an sp2 junction (two adjacent single bonds) nothing is
- * adjusted — the single bonds and both lines converge at the vertex.
+ * Junction convention: the line on the side of an adjacent single bond is
+ * extended or trimmed to start exactly where it meets that bond's centerline
+ * (the single bonds themselves run all the way to the vertex, so everything
+ * touches). A line with no adjacent bond on its side keeps its gap.
  */
 export function doubleBondLines(
   axis: BondAxis,
@@ -86,7 +72,7 @@ export function doubleBondLines(
       [adjA, axis.dir, (s: number) => { line.p1 = add(line.p1, scale(axis.dir, s)); }],
       [adjB, back, (s: number) => { line.p2 = add(line.p2, scale(back, s)); }],
     ] as const) {
-      if (adj.length !== 1) continue; // only degree-2 junctions get the gapless bend
+      if (adj.length === 0) continue; // no single bond at this end: keep the gap
       let best: number | null = null;
       for (const u of adj) {
         if (Math.sign(side * (u.x * axis.normal.x + u.y * axis.normal.y)) <= 0) continue;

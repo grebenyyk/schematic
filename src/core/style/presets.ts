@@ -10,7 +10,7 @@ export const ACS1996: StyleSheet = {
   doubleBondSpacing: 0.18,
   chainAngleDeg: 120,
   labelFont: 'Helvetica, Arial, sans-serif',
-  labelSizePt: 10,
+  labelSizePt: 9,
   labelColorMode: 'mono',
   aromaticStyle: 'kekule',
   wedgeTaper: 'sharp',
