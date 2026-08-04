@@ -61,10 +61,11 @@ function crossing(offset: number, normal: Vec2, d: Vec2, u: Vec2): number | null
 /**
  * Two lines symmetric about the axis, gap = doubleBondSpacing × bondLength.
  * adjA/adjB are unit directions of the other bonds leaving each endpoint.
- * Junction convention: the line on the side of an adjacent single bond is
- * extended or trimmed so it starts exactly where it meets that bond's
- * centerline (no gap); a line with no adjacent bond on its side keeps the
- * gap and starts at the vertex plane.
+ * Junction convention: at a degree-2 junction (exactly one adjacent single
+ * bond) the line on that bond's side is extended or trimmed to start exactly
+ * where it meets the bond's centerline (no gap), while the other line keeps
+ * its gap. At an sp2 junction (two adjacent single bonds) nothing is
+ * adjusted — the single bonds and both lines converge at the vertex.
  */
 export function doubleBondLines(
   axis: BondAxis,
@@ -85,6 +86,7 @@ export function doubleBondLines(
       [adjA, axis.dir, (s: number) => { line.p1 = add(line.p1, scale(axis.dir, s)); }],
       [adjB, back, (s: number) => { line.p2 = add(line.p2, scale(back, s)); }],
     ] as const) {
+      if (adj.length !== 1) continue; // only degree-2 junctions get the gapless bend
       let best: number | null = null;
       for (const u of adj) {
         if (Math.sign(side * (u.x * axis.normal.x + u.y * axis.normal.y)) <= 0) continue;

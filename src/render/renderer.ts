@@ -35,16 +35,21 @@ function adjacentDirections(mol: Molecule, bond: Bond, atomId: number): Vec2[] {
 }
 
 /**
- * How far short of a junction with an acyclic double bond this single bond
- * should stop at the given endpoint (the ChemDraw "fork").
+ * How far short of a degree-2 junction with an acyclic double bond this
+ * single bond should stop at the given endpoint, so its end meets the
+ * nearer double line (the gapless bend). At sp2 junctions (two single
+ * bonds + a double bond) there is no setback — everything converges at
+ * the vertex instead.
  */
 function junctionSetback(mol: Molecule, bond: Bond, atomId: number, style: StyleSheet): number {
   if (bond.order !== 1) return 0;
+  const incident = [...bondsOf(mol, atomId)];
+  if (incident.length !== 2) return 0;
   const halfGap = (style.doubleBondSpacing * style.bondLengthPt) / 2;
   const otherId = bond.a === atomId ? bond.b : bond.a;
   const u = norm(sub(mol.atoms.get(otherId)!.pos, mol.atoms.get(atomId)!.pos));
   let setback = 0;
-  for (const bondId of bondsOf(mol, atomId)) {
+  for (const bondId of incident) {
     if (bondId === bond.id) continue;
     const d = mol.bonds.get(bondId)!;
     if (d.order !== 2 || ringPath(mol, d.id) !== null) continue;

@@ -23,7 +23,7 @@ export interface EditorConfig {
 
 export class Editor implements ToolContext {
   readonly style: StyleSheet;
-  private readonly history: History;
+  private history: History;
   private readonly tool: Tool;
   private readonly svg: SVGSVGElement;
   private decorations: Decoration[] = [];
@@ -50,6 +50,14 @@ export class Editor implements ToolContext {
 
   get document(): Document {
     return this.history.document;
+  }
+
+  /** Replace the whole document (import, demos, tests). Clears history. */
+  loadDocument(doc: Document): void {
+    this.history = new History(doc);
+    this.nextId = doc.meta.nextId;
+    this.decorations = [];
+    this.render();
   }
 
   commit(command: Command): void {

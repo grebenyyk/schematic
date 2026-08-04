@@ -79,3 +79,6 @@ const editor = new Editor(mount, {
 
 undoBtn.addEventListener('click', () => editor.undo());
 redoBtn.addEventListener('click', () => editor.redo());
+
+// debug/e2e hook
+(window as unknown as { editor: Editor }).editor = editor;
