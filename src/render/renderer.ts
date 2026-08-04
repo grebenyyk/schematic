@@ -4,7 +4,7 @@ import { bondsOf, type Bond, type Molecule } from '../core/model/molecule';
 import { ringPath } from '../core/model/rings';
 import { norm, sub, type Vec2 } from '../core/geometry/vec2';
 import type { StyleSheet } from '../core/style/stylesheet';
-import { bondAxis, renderBond, singleBondJunctionSetback } from './bonds';
+import { bondAxis, renderBond, singleBondJunctionSetback, type BondAxis } from './bonds';
 import { hasVisibleLabel, renderLabel } from './labels';
 import { renderDecorations, type Decoration } from './decorators';
 
@@ -79,6 +79,29 @@ function updateViewBox(svg: SVGSVGElement, doc: MolDocument, style: StyleSheet):
 }
 
 /**
+ * The axis a bond is actually drawn along: trimmed by label clearance and
+ * junction setbacks at both ends. Shared by the renderer and anything that
+ * needs to know where the *drawn* line sits (e.g. hover highlights).
+ */
+export function bondRenderAxis(mol: Molecule, bond: Bond, style: StyleSheet): BondAxis {
+  const a = mol.atoms.get(bond.a)!;
+  const b = mol.atoms.get(bond.b)!;
+  const fullLen = Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y);
+  const trimEnd = (atomId: number) => {
+    const atom = mol.atoms.get(atomId)!;
+    const degree = [...bondsOf(mol, atomId)].length;
+    return Math.min(
+      Math.max(
+        trimFor(hasVisibleLabel(atom, degree), style),
+        junctionSetback(mol, bond, atomId, style),
+      ),
+      fullLen / 2,
+    );
+  };
+  return bondAxis(a.pos, b.pos, trimEnd(bond.a), trimEnd(bond.b));
+}
+
+/**
  * Full redraw of a document into an SVG element: layered groups
  * bonds → labels → decorators. Incremental patching comes later,
  * once commands report affected ids.
@@ -103,18 +126,7 @@ export function renderDocument(
       labeled.set(atom.id, hasVisibleLabel(atom, degree));
     }
     for (const bond of mol.bonds.values()) {
-      const a = mol.atoms.get(bond.a)!;
-      const b = mol.atoms.get(bond.b)!;
-      const fullLen = Math.hypot(b.pos.x - a.pos.x, b.pos.y - a.pos.y);
-      const trimEnd = (atomId: number) =>
-        Math.min(
-          Math.max(
-            trimFor(labeled.get(atomId)!, style),
-            junctionSetback(mol, bond, atomId, style),
-          ),
-          fullLen / 2,
-        );
-      const axis = bondAxis(a.pos, b.pos, trimEnd(bond.a), trimEnd(bond.b));
+      const axis = bondRenderAxis(mol, bond, style);
       const adj = bond.order === 2
         ? {
             a: adjacentDirections(mol, bond, bond.a),

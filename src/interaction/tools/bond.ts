@@ -5,6 +5,7 @@ import { defaultBondDirection } from '../../core/geometry/chain';
 import { findAtom, findBond } from '../../core/model/document';
 import { bondsOf } from '../../core/model/molecule';
 import { hasVisibleLabel } from '../../render/labels';
+import { bondRenderAxis } from '../../render/renderer';
 import type { Command } from '../../core/commands/command';
 import { CompoundCommand } from '../../core/commands/command';
 import { AddAtom, AddBond, SetBondOrder } from '../../core/commands/ops';
@@ -104,12 +105,11 @@ export class BondTool implements Tool {
     } else if (hit.kind === 'atom') {
       ctx.setDecorations([atomDecoration(ctx, hit.id)]);
     } else {
-      const bond = findBond(doc, hit.id)!.bond;
-      const a = findAtom(doc, bond.a)!.atom.pos;
-      const b = findAtom(doc, bond.b)!.atom.pos;
+      const loc = findBond(doc, hit.id)!;
+      const axis = bondRenderAxis(doc.molecules[loc.moleculeIndex], loc.bond, ctx.style);
       ctx.setDecorations([{
         type: 'hover-bond',
-        center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+        center: { x: (axis.a.x + axis.b.x) / 2, y: (axis.a.y + axis.b.y) / 2 },
       }]);
     }
   }
