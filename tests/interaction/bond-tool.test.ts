@@ -150,6 +150,28 @@ describe('BondTool click on an atom', () => {
     expect([60, 300].some((x) => Math.abs(d - x) < 1e-6)).toBe(true);
   });
 
+  test('click with an atom at the landing spot closes onto it instead of stacking', () => {
+    // atom 1 has two bonds fanning left; the max-clearance direction points
+    // east, exactly where atom 2 sits (one bond length away, unbonded)
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 9, element: 'C', pos: vec(-12.5, -7.2), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 10, element: 'C', pos: vec(-12.5, 7.2), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 2, element: 'C', pos: vec(14.4, 0), charge: 0, hydrogens: null });
+    m = addBond(m, { id: 100, a: 1, b: 9, order: 1, stereo: 'none' });
+    m = addBond(m, { id: 101, a: 1, b: 10, order: 1, stereo: 'none' });
+    const { ctx, state } = makeCtx(withMolecule(createDocument(), m));
+    const tool = new BondTool();
+    tool.onDown(at(0.2, 0.2), ctx);
+    tool.onUp(at(0.2, 0.2), ctx);
+    const mol = state.doc.molecules[0];
+    expect(mol.atoms.size).toBe(4); // no new atom stacked
+    expect(mol.bonds.size).toBe(3); // bonded onto atom 2
+    const closed = [...mol.bonds.values()].some(
+      (b) => (b.a === 1 && b.b === 2) || (b.a === 2 && b.b === 1));
+    expect(closed).toBe(true);
+  });
+
   test('does not add to a valence-saturated atom (C with 4 bonds)', () => {
     let m = emptyMolecule();
     m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });

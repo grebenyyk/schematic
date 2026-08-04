@@ -182,6 +182,28 @@ export class BondTool implements Tool {
     const dir = defaultBondDirection(mol, loc.atom.id);
     const [idB, idBond] = ctx.allocIds(2);
     const pos = add(loc.atom.pos, scale(dir, ctx.style.bondLengthPt));
+
+    // an existing atom at the landing spot: close onto it instead of stacking
+    const merge = mergeTarget(doc, pos, MERGE_RADIUS);
+    if (merge !== null && merge !== loc.atom.id) {
+      const target = findAtom(doc, merge)!;
+      if (implicitHydrogens(doc.molecules[target.moleculeIndex], merge) === 0) return;
+      const sameMol = target.moleculeIndex === loc.moleculeIndex;
+      const dup = sameMol && [...mol.bonds.values()]
+        .some((b) => (b.a === loc.atom.id && b.b === merge) || (b.a === merge && b.b === loc.atom.id));
+      if (dup) return;
+      const commands: Command[] = [
+        new AddBond(
+          { id: idBond, a: loc.atom.id, b: merge, order: 1, stereo: 'none' },
+          loc.moleculeIndex,
+          sameMol ? null : target.moleculeIndex,
+        ),
+      ];
+      if (chargeDelta === 1) commands.push(new SetCharge(loc.atom.id, loc.atom.charge + 1));
+      ctx.commit(new CompoundCommand(commands, 'Add bond'));
+      return;
+    }
+
     const commands: Command[] = [
       new AddAtom({ id: idB, element: 'C', pos, charge: 0, hydrogens: null }, loc.moleculeIndex),
       new AddBond({ id: idBond, a: loc.atom.id, b: idB, order: 1, stereo: 'none' }, loc.moleculeIndex),
