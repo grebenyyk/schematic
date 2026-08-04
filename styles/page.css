@@ -47,6 +47,8 @@ body {
   min-height: 0;
   touch-action: none;
   cursor: crosshair;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 #canvas-host .canvas {
