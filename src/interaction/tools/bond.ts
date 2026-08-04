@@ -174,9 +174,10 @@ export class BondTool implements Tool {
     if (!loc) return;
     const mol = doc.molecules[loc.moleculeIndex];
     // saturated atoms don't grow — except onium-forming heteroatoms,
-    // which take a + charge instead (NMe3 → [NMe4]+)
+    // which take a + charge instead (NMe3 → [NMe4]+), once
     const saturated = implicitHydrogens(mol, loc.atom.id) === 0;
-    const chargeDelta = saturated && ONIUM_ELEMENTS.has(loc.atom.element) ? 1 : 0;
+    const chargeDelta =
+      saturated && ONIUM_ELEMENTS.has(loc.atom.element) && loc.atom.charge < 1 ? 1 : 0;
     if (saturated && chargeDelta === 0) return;
     const dir = defaultBondDirection(mol, loc.atom.id);
     const [idB, idBond] = ctx.allocIds(2);
