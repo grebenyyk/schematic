@@ -61,9 +61,10 @@ function crossing(offset: number, normal: Vec2, d: Vec2, u: Vec2): number | null
 /**
  * Two lines symmetric about the axis, gap = doubleBondSpacing × bondLength.
  * adjA/adjB are unit directions of the other bonds leaving each endpoint.
- * A double-bond line is never drawn across an adjacent single bond: when the
- * angle is acute, the line is trimmed exactly where it would cross the single
- * bond's centerline, so the single bond visually splits into the double bond.
+ * Junction convention: the line on the side of an adjacent single bond is
+ * extended or trimmed so it starts exactly where it meets that bond's
+ * centerline (no gap); a line with no adjacent bond on its side keeps the
+ * gap and starts at the vertex plane.
  */
 export function doubleBondLines(
   axis: BondAxis,
@@ -73,28 +74,25 @@ export function doubleBondLines(
 ): [Line, Line] {
   const half = (style.doubleBondSpacing * style.bondLengthPt) / 2;
   const lines: [Line, Line] = [offsetLine(axis, half), offsetLine(axis, -half)];
+  const back = { x: -axis.dir.x, y: -axis.dir.y };
+  const maxExtend = 3 * half;
+  const maxTrim = Math.max(0, (axis.length - half) / 2);
+  const clamp = (s: number) => Math.max(-maxExtend, Math.min(s, maxTrim));
 
   for (const side of [1, -1] as const) {
-    let trimA = 0;
-    for (const u of adjA) {
-      if (Math.sign(side * (u.x * axis.normal.x + u.y * axis.normal.y)) <= 0) continue;
-      const s = crossing(side * half, axis.normal, axis.dir, u);
-      if (s !== null && s > trimA) trimA = s;
-    }
-    let trimB = 0;
-    const back = { x: -axis.dir.x, y: -axis.dir.y };
-    for (const u of adjB) {
-      if (Math.sign(side * (u.x * axis.normal.x + u.y * axis.normal.y)) <= 0) continue;
-      const s = crossing(side * half, axis.normal, back, u);
-      if (s !== null && s > trimB) trimB = s;
-    }
-    // never let the two ends eat the whole line
-    const maxTrim = Math.max(0, (axis.length - half) / 2);
-    trimA = Math.min(trimA, maxTrim);
-    trimB = Math.min(trimB, maxTrim);
     const line = lines[side === 1 ? 0 : 1];
-    line.p1 = add(line.p1, scale(axis.dir, trimA));
-    line.p2 = sub(line.p2, scale(axis.dir, trimB));
+    for (const [adj, d, move] of [
+      [adjA, axis.dir, (s: number) => { line.p1 = add(line.p1, scale(axis.dir, s)); }],
+      [adjB, back, (s: number) => { line.p2 = add(line.p2, scale(back, s)); }],
+    ] as const) {
+      let best: number | null = null;
+      for (const u of adj) {
+        if (Math.sign(side * (u.x * axis.normal.x + u.y * axis.normal.y)) <= 0) continue;
+        const s = crossing(side * half, axis.normal, d, u);
+        if (s !== null && (best === null || s > best)) best = s;
+      }
+      if (best !== null) move(clamp(best));
+    }
   }
   return lines;
 }

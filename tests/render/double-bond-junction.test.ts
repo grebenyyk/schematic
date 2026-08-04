@@ -4,70 +4,83 @@ import { ACS1996 } from '../../src/core/style/presets';
 import { bondAxis, doubleBondLines } from '../../src/render/bonds';
 
 const L = ACS1996.bondLengthPt;
+const HALF = (ACS1996.doubleBondSpacing * L) / 2;
 const d2r = Math.PI / 180;
 const dir = (deg: number): Vec2 => vec(Math.cos(deg * d2r), Math.sin(deg * d2r));
 
 // double bond east from a=(0,0) to b=(L,0); normal is +y
 const axis = () => bondAxis(vec(0, 0), vec(L, 0), 0, 0);
 
-describe('double bond junction trimming (modern convention)', () => {
-  test('acute adjacent bond: near-side line trimmed at the crossing point', () => {
-    // single bond leaving a at +60° (acute to the double bond)
-    const [near, far] = doubleBondLines(axis(), ACS1996, [dir(60)], []);
-    // near line (offset +y) must start where it meets the single bond centerline:
-    // on the ray t·dir(60), i.e. y/x = tan60
-    const s = near.p1;
-    expect(s.x).toBeGreaterThan(0.1); // actually trimmed forward
-    expect(s.y / s.x).toBeCloseTo(Math.tan(60 * d2r), 3);
-    // far line untouched: starts at the vertex plane
+/** Parameter t at which point p lies on the ray origin + t·u (null if not on it). */
+function onRay(p: Vec2, u: Vec2): number {
+  const t = Math.abs(u.x) > Math.abs(u.y) ? p.x / u.x : p.y / u.y;
+  const q = vec(u.x * t, u.y * t);
+  return Math.hypot(p.x - q.x, p.y - q.y) < 1e-6 ? t : NaN;
+}
+
+describe('double bond junction: near line meets the single bond, far line keeps a gap', () => {
+  test('120° junction: near line extends back to the single bond, far line at vertex plane', () => {
+    const [near, far] = doubleBondLines(axis(), ACS1996, [dir(120)], []);
+    // near (+y) line start lies exactly on the single bond centerline ray
+    const t = onRay(near.p1, dir(120));
+    expect(t).toBeGreaterThan(0);
+    expect(t).toBeCloseTo(HALF / Math.sin(120 * d2r), 5);
+    // it extends backward past the vertex (x < 0) to close the gap
+    expect(near.p1.x).toBeLessThan(0);
+    // far line keeps the gap: untouched at the vertex plane
     expect(far.p1.x).toBeCloseTo(0);
-    // both lines still reach b
-    expect(near.p2.x).toBeCloseTo(L);
-    expect(far.p2.x).toBeCloseTo(L);
+    expect(far.p1.y).toBeCloseTo(-HALF);
   });
 
-  test('120° adjacent bond: no trimming (intersection behind vertex)', () => {
-    const [l1, l2] = doubleBondLines(axis(), ACS1996, [dir(120)], []);
-    expect(l1.p1.x).toBeCloseTo(0);
-    expect(l2.p1.x).toBeCloseTo(0);
+  test('acute 60° junction: near line trimmed forward to the crossing', () => {
+    const [near, far] = doubleBondLines(axis(), ACS1996, [dir(60)], []);
+    const t = onRay(near.p1, dir(60));
+    expect(t).toBeCloseTo(HALF / Math.sin(60 * d2r), 5);
+    expect(near.p1.x).toBeGreaterThan(0.1);
+    expect(far.p1.x).toBeCloseTo(0);
   });
 
-  test('collinear adjacent bond (straight chain): no trim, no crash', () => {
+  test('collinear adjacent bond (straight chain): no adjustment', () => {
     const [l1, l2] = doubleBondLines(axis(), ACS1996, [dir(180)], []);
     expect(l1.p1.x).toBeCloseTo(0);
     expect(l2.p1.x).toBeCloseTo(0);
   });
 
-  test('adjacent bond at the b end trims from that end', () => {
-    // single bond leaving b at 120° measured in world coords = acute to the axis at b
-    const [l1, l2] = doubleBondLines(axis(), ACS1996, [], [dir(120)]);
-    const ends = [l1.p2, l2.p2];
-    const trimmed = ends.filter((p) => p.x < L - 0.1);
-    expect(trimmed).toHaveLength(1);
-    // trimmed endpoint lies on the ray b + t·dir(120)
-    const t = trimmed[0];
-    expect((t.y - 0) / (t.x - L)).toBeCloseTo(Math.tan(120 * d2r), 3);
+  test('no adjacent bond on a side: that line keeps its gap', () => {
+    const [l1, l2] = doubleBondLines(axis(), ACS1996, [], []);
+    expect(l1.p1.x).toBeCloseTo(0);
+    expect(l1.p1.y).toBeCloseTo(HALF);
+    expect(l2.p1.x).toBeCloseTo(0);
+    expect(l2.p1.y).toBeCloseTo(-HALF);
   });
 
-  test('two adjacent bonds at sp2 center: each side trims to its own single bond', () => {
-    // u1 at +60°, u2 at -60°: both acute, both sides trimmed
-    const [l1, l2] = doubleBondLines(axis(), ACS1996, [dir(60), dir(-60)], []);
-    expect(l1.p1.x).toBeGreaterThan(0.1);
-    expect(l2.p1.x).toBeGreaterThan(0.1);
-    // and each start point lies on its corresponding single-bond ray
-    for (const [line, deg] of [[l1, 60], [l2, -60]] as const) {
-      expect(Math.abs(line.p1.y / line.p1.x)).toBeCloseTo(Math.abs(Math.tan(deg * d2r)), 3);
+  test('junction at the b end mirrors the same rule', () => {
+    const [near, far] = doubleBondLines(axis(), ACS1996, [], [dir(120)]);
+    // near line end extends past b onto the single bond ray from b
+    const p = near.p2;
+    const u = dir(120);
+    const t = Math.abs(u.x) > Math.abs(u.y) ? (p.x - L) / u.x : (p.y - 0) / u.y;
+    const q = vec(L + u.x * t, u.y * t);
+    expect(Math.hypot(p.x - q.x, p.y - q.y)).toBeLessThan(1e-6);
+    expect(t).toBeCloseTo(HALF / Math.sin(120 * d2r), 5);
+    expect(far.p2.x).toBeCloseTo(L);
+  });
+
+  test('sp2 center with single bonds on both sides: both lines meet their single bond', () => {
+    const [up, down] = doubleBondLines(axis(), ACS1996, [dir(120), dir(-120)], []);
+    for (const [line, u] of [[up, dir(120)], [down, dir(-120)]] as const) {
+      const t = onRay(line.p1, u);
+      expect(t).toBeCloseTo(HALF / Math.sin(120 * d2r), 5);
     }
   });
 
-  test('trimmed lines remain parallel to the axis and correctly offset', () => {
-    const [l1, l2] = doubleBondLines(axis(), ACS1996, [dir(45)], []);
+  test('adjusted lines remain parallel to the axis and correctly offset', () => {
+    const [l1, l2] = doubleBondLines(axis(), ACS1996, [dir(120)], []);
     for (const line of [l1, l2]) {
       const v = norm(sub(line.p2, line.p1));
       expect(Math.abs(v.x)).toBeCloseTo(1);
       expect(Math.abs(v.y)).toBeCloseTo(0);
     }
-    // perpendicular offset between the parallel lines is the double-bond gap
-    expect(Math.abs(l1.p1.y - l2.p1.y)).toBeCloseTo(ACS1996.doubleBondSpacing * L);
+    expect(Math.abs(l1.p1.y - l2.p1.y)).toBeCloseTo(2 * HALF);
   });
 });
