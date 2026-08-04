@@ -5,7 +5,7 @@ import { ACS1996 } from '../../src/core/style/presets';
 import { createDocument, withMolecule, allocId } from '../../src/core/model/document';
 import { emptyMolecule, addAtom, addBond, type Molecule } from '../../src/core/model/molecule';
 import { renderDocument } from '../../src/render/renderer';
-import { renderDecorations, type Decoration } from '../../src/render/decorators';
+import { renderDecorations } from '../../src/render/decorators';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -84,16 +84,46 @@ describe('renderDocument', () => {
 });
 
 describe('renderDecorations', () => {
-  test('hover atom draws a circle, snap guide draws a dashed line', () => {
+  const makeG = () => {
     const svg = document.createElementNS(SVG_NS, 'svg') as unknown as SVGSVGElement;
     const g = document.createElementNS(SVG_NS, 'g') as unknown as SVGGElement;
     svg.appendChild(g);
-    const decorations: Decoration[] = [
-      { type: 'hover-atom', pos: vec(5, 5) },
-      { type: 'snap-guide', from: vec(0, 0), to: vec(14.4, 0) },
-    ];
-    renderDecorations(document, g, decorations, ACS1996);
-    expect(g.querySelectorAll('circle')).toHaveLength(1);
+    document.body.appendChild(svg);
+    return g;
+  };
+
+  test('unlabeled (carbon) atom hover draws a circle outline', () => {
+    const g = makeG();
+    renderDecorations(document, g, [{ type: 'hover-atom', pos: vec(5, 5), labeled: false }], ACS1996);
+    const c = g.querySelector('circle')!;
+    expect(c.getAttribute('fill')).toBe('none');
+    expect(c.getAttribute('stroke')).toBe(ACS1996.colors.hover);
+  });
+
+  test('labeled (hetero) atom hover draws the letter outline', () => {
+    const g = makeG();
+    renderDecorations(document, g, [
+      { type: 'hover-atom', pos: vec(5, 5), labeled: true, element: 'O' },
+    ], ACS1996);
+    const t = g.querySelector('text')!;
+    expect(t.textContent).toBe('O');
+    expect(t.getAttribute('fill')).toBe('none');
+    expect(t.getAttribute('stroke')).toBe(ACS1996.colors.hover);
+    expect(g.querySelector('circle')).toBeNull();
+  });
+
+  test('hover bond draws a filled circle at the bond center', () => {
+    const g = makeG();
+    renderDecorations(document, g, [{ type: 'hover-bond', center: vec(7.2, 0) }], ACS1996);
+    const c = g.querySelector('circle')!;
+    expect(c.getAttribute('cx')).toBe('7.2');
+    expect(c.getAttribute('fill')).toBe(ACS1996.colors.hover);
+    expect(g.querySelector('line')).toBeNull();
+  });
+
+  test('snap guide draws a dashed line', () => {
+    const g = makeG();
+    renderDecorations(document, g, [{ type: 'snap-guide', from: vec(0, 0), to: vec(14.4, 0) }], ACS1996);
     const guide = g.querySelector('line')!;
     expect(guide.getAttribute('stroke-dasharray')).toBeTruthy();
     expect(guide.getAttribute('stroke')).toBe(ACS1996.colors.hover);
