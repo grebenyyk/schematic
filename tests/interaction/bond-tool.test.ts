@@ -132,6 +132,45 @@ describe('BondTool merge onto existing atom', () => {
   });
 });
 
+describe('BondTool click on an atom', () => {
+  test('adds a methyl group at 120° to the existing bond', () => {
+    const { ctx, state } = makeCtx(docWithBond());
+    const tool = new BondTool();
+    tool.onDown(at(14.3, 0.3), ctx); // click atom 2
+    tool.onUp(at(14.3, 0.3), ctx);
+    const mol = state.doc.molecules[0];
+    expect(mol.atoms.size).toBe(3);
+    expect(mol.bonds.size).toBe(2);
+    const added = [...mol.atoms.values()].find((a) => a.id !== 1 && a.id !== 2)!;
+    expect(added.element).toBe('C');
+    const atom2 = mol.atoms.get(2)!;
+    expect(dist(added.pos, atom2.pos)).toBeCloseTo(ACS1996.bondLengthPt);
+    // 120° to the existing bond (which points west from atom 2): 60° or 300°
+    const d = ((angle(sub(added.pos, atom2.pos)) * 180) / Math.PI + 360) % 360;
+    expect([60, 300].some((x) => Math.abs(d - x) < 1e-6)).toBe(true);
+  });
+
+  test('repeated clicks extend a zigzag chain, undoably per click', () => {
+    const { ctx, state } = makeCtx(docWithBond());
+    const tool = new BondTool();
+    tool.onDown(at(14.3, 0.3), ctx);
+    tool.onUp(at(14.3, 0.3), ctx);
+    const first = [...state.doc.molecules[0].atoms.values()].find((a) => a.id >= 1000)!;
+    // click the newly added atom
+    tool.onDown(at(first.pos.x + 0.2, first.pos.y + 0.2), ctx);
+    tool.onUp(at(first.pos.x + 0.2, first.pos.y + 0.2), ctx);
+    const mol = state.doc.molecules[0];
+    expect(mol.atoms.size).toBe(4);
+    expect(mol.bonds.size).toBe(3);
+    // zigzag: the two new bonds are not collinear with the first bond
+    const atoms = [...mol.atoms.values()];
+    const newest = atoms.find((a) => a.id > first.id)!;
+    const dirNew = angle(sub(newest.pos, first.pos));
+    const dirFirst = angle(sub(first.pos, mol.atoms.get(2)!.pos));
+    expect(Math.abs(dirNew - dirFirst)).toBeGreaterThan(0.5);
+  });
+});
+
 describe('BondTool click cycling', () => {
   test('click on a bond cycles order 1→2→3→1', () => {
     const { ctx, state } = makeCtx(docWithBond());

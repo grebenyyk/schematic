@@ -1,6 +1,7 @@
-import { dist, type Vec2 } from '../../core/geometry/vec2';
+import { add, dist, scale, type Vec2 } from '../../core/geometry/vec2';
 import { pick } from '../../core/geometry/hit';
 import { mergeTarget, snapBondPoint } from '../../core/geometry/snapping';
+import { defaultBondDirection } from '../../core/geometry/chain';
 import { findAtom, findBond } from '../../core/model/document';
 import type { Command } from '../../core/commands/command';
 import { CompoundCommand } from '../../core/commands/command';
@@ -67,6 +68,8 @@ export class BondTool implements Tool {
         if (order === 1 || order === 2 || order === 3) {
           ctx.commit(new SetBondOrder(this.clickedBond, order === 3 ? 1 : ((order + 1) as 2 | 3)));
         }
+      } else if (this.anchorAtom !== null) {
+        this.commitMethyl(ctx);
       }
     } else if (this.clickedBond === null && this.endPos) {
       this.commitDraw(ctx);
@@ -131,6 +134,21 @@ export class BondTool implements Tool {
       commands.push(new AddBond({ id: idBond, a: aId, b: bId, order: 1, stereo: 'none' }, molA, molB));
     }
     if (commands.length > 0) ctx.commit(new CompoundCommand(commands, 'Draw bond'));
+  }
+
+  /** Click on an atom: grow a methyl group at the default (zigzag) angle. */
+  private commitMethyl(ctx: ToolContext): void {
+    const doc = ctx.document;
+    const loc = findAtom(doc, this.anchorAtom!);
+    if (!loc) return;
+    const mol = doc.molecules[loc.moleculeIndex];
+    const dir = defaultBondDirection(mol, loc.atom.id);
+    const [idB, idBond] = ctx.allocIds(2);
+    const pos = add(loc.atom.pos, scale(dir, ctx.style.bondLengthPt));
+    ctx.commit(new CompoundCommand([
+      new AddAtom({ id: idB, element: 'C', pos, charge: 0, hydrogens: null }, loc.moleculeIndex),
+      new AddBond({ id: idBond, a: loc.atom.id, b: idB, order: 1, stereo: 'none' }, loc.moleculeIndex),
+    ], 'Add methyl'));
   }
 
   private reset(): void {
