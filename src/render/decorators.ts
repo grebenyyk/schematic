@@ -121,9 +121,9 @@ export function renderDecorations(
       if (d.points.length >= 2) {
         const poly = doc.createElementNS(SVG_NS, 'polygon');
         poly.setAttribute('points', d.points.map((p) => `${p.x},${p.y}`).join(' '));
-        poly.setAttribute('fill', style.colors.hover);
+        poly.setAttribute('fill', style.colors.selection);
         poly.setAttribute('fill-opacity', '0.12');
-        poly.setAttribute('stroke', style.colors.hover);
+        poly.setAttribute('stroke', style.colors.selection);
         poly.setAttribute('stroke-width', String(style.lineWidthPt));
         poly.setAttribute('stroke-dasharray', '2 2');
         group.appendChild(poly);
