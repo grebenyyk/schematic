@@ -185,6 +185,24 @@ describe('rotate handle placement', () => {
     expect(Math.abs(pos.x - center.x)).toBeCloseTo(Math.abs(pos.y - center.y), 4); // 45°
   });
 
+  test('handle position is stable across rotations of an asymmetric selection', () => {
+    // three atoms with an off-center centroid: bbox center would drift under
+    // rotation, the mean-position centroid must not
+    let m = emptyMolecule();
+    m = addAtom(m, { id: 1, element: 'C', pos: vec(0, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 2, element: 'C', pos: vec(14.4, 0), charge: 0, hydrogens: null });
+    m = addAtom(m, { id: 3, element: 'C', pos: vec(28.8, 5), charge: 0, hydrogens: null });
+    m = addBond(m, { id: 10, a: 1, b: 2, order: 1, stereo: 'none' });
+    m = addBond(m, { id: 11, a: 2, b: 3, order: 1, stereo: 'none' });
+    const { ctx, state } = makeCtx(withMolecule(createDocument(), m));
+    const sel = { atoms: new Set([1, 2, 3]), bonds: new Set<number>() };
+    const before = selectionHandlePos(ctx.document, sel)!;
+    ctx.commit(new RotateAtoms([1, 2, 3], { x: (0 + 14.4 + 28.8) / 3, y: 5 / 3 }, Math.PI / 3));
+    const after = selectionHandlePos(state.doc, sel)!;
+    expect(after.x).toBeCloseTo(before.x, 6);
+    expect(after.y).toBeCloseTo(before.y, 6);
+  });
+
   test('handle position is stable across rotations of the selection', () => {
     const { ctx, state } = makeCtx(chain3());
     const tool = new SelectTool();

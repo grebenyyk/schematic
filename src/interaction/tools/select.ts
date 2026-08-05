@@ -180,16 +180,24 @@ function selectInPolygon(ctx: ToolContext, sel: Selection, points: Vec2[]): void
 const HANDLE_HIT_RADIUS = 6;
 const HANDLE_OFFSET = 8;
 
-function selectionBBox(doc: Document, sel: Selection): { minX: number; minY: number; maxX: number; maxY: number } | null {
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+/**
+ * The rotation-invariant center of a selection: the mean of the atom
+ * positions. Rotating around it keeps it (and any radius from it) fixed,
+ * unlike a bounding-box center, which drifts for asymmetric selections.
+ */
+function selectionCentroid(doc: Document, sel: Selection): Vec2 | null {
+  let x = 0;
+  let y = 0;
+  let n = 0;
   for (const mol of doc.molecules) {
     for (const atom of mol.atoms.values()) {
       if (!sel.atoms.has(atom.id)) continue;
-      minX = Math.min(minX, atom.pos.x); maxX = Math.max(maxX, atom.pos.x);
-      minY = Math.min(minY, atom.pos.y); maxY = Math.max(maxY, atom.pos.y);
+      x += atom.pos.x;
+      y += atom.pos.y;
+      n++;
     }
   }
-  return isFinite(minX) ? { minX, minY, maxX, maxY } : null;
+  return n > 0 ? { x: x / n, y: y / n } : null;
 }
 
 /**
@@ -198,26 +206,17 @@ function selectionBBox(doc: Document, sel: Selection): { minX: number; minY: num
  * rotations of the same selection.
  */
 export function selectionHandlePos(doc: Document, sel: Selection): Vec2 | null {
-  const box = selectionBBox(doc, sel);
-  if (!box) return null;
-  const cx = (box.minX + box.maxX) / 2;
-  const cy = (box.minY + box.maxY) / 2;
+  const c = selectionCentroid(doc, sel);
+  if (!c) return null;
   let radius = 0;
   for (const mol of doc.molecules) {
     for (const atom of mol.atoms.values()) {
       if (!sel.atoms.has(atom.id)) continue;
-      radius = Math.max(radius, Math.hypot(atom.pos.x - cx, atom.pos.y - cy));
+      radius = Math.max(radius, Math.hypot(atom.pos.x - c.x, atom.pos.y - c.y));
     }
   }
   const d = (radius + HANDLE_OFFSET) / Math.SQRT2;
-  return { x: cx + d, y: cy - d };
-}
-
-function selectionCentroid(doc: Document, sel: Selection): Vec2 | null {
-  const box = selectionBBox(doc, sel);
-  return box
-    ? { x: (box.minX + box.maxX) / 2, y: (box.minY + box.maxY) / 2 }
-    : null;
+  return { x: c.x + d, y: c.y - d };
 }
 
 /** Selection outlines for a document — used by the editor every render. */
