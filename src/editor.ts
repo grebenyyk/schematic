@@ -211,6 +211,8 @@ export class Editor implements ToolContext {
   private attachPointer(mount: HTMLElement): void {
     mount.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
+      // a click that activates an unfocused window must not draw
+      if (!document.hasFocus()) return;
       mount.setPointerCapture(e.pointerId);
       this.lastPointer = this.toPtSpace(e);
       this.draggingSelected = this.toolKind === 'select' && this.overSelected();
