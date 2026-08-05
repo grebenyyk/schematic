@@ -26,7 +26,7 @@ export interface EditorConfig {
   style?: StyleSheet;
   document?: Document;
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void;
-  onDocumentChange?: (doc: Document) => void;
+  onDocumentChange?: (doc: Document, selection: Selection) => void;
 }
 
 export class Editor implements ToolContext {
@@ -38,7 +38,7 @@ export class Editor implements ToolContext {
   private nextId: number;
   private lastPointer: PointerInfo | null = null;
   private readonly onHistoryChange: ((canUndo: boolean, canRedo: boolean) => void) | undefined;
-  private readonly onDocumentChange: ((doc: Document) => void) | undefined;
+  private readonly onDocumentChange: ((doc: Document, selection: Selection) => void) | undefined;
 
   constructor(mount: HTMLElement, config: EditorConfig = {}) {
     this.style = config.style ?? ACS1996;
@@ -155,6 +155,7 @@ export class Editor implements ToolContext {
   }
 
   private lastRenderedDoc: Document | null = null;
+  private lastSelection: Selection | null = null;
   private camera: Camera | null = null;
   private previewDelta: Vec2 | null = null;
   private previewRotate: { center: Vec2; angle: number } | null = null;
@@ -199,9 +200,10 @@ export class Editor implements ToolContext {
     renderDocument(document, this.svg, doc, this.style,
       [...selDecos, ...this.decorations], viewBox);
     this.onHistoryChange?.(this.history.canUndo, this.history.canRedo);
-    if (base !== this.lastRenderedDoc) {
+    if (base !== this.lastRenderedDoc || this.selection !== this.lastSelection) {
       this.lastRenderedDoc = base;
-      this.onDocumentChange?.(base);
+      this.lastSelection = this.selection;
+      this.onDocumentChange?.(base, this.selection);
     }
   }
 

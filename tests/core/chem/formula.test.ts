@@ -40,6 +40,19 @@ describe('hillFormula', () => {
   test('empty document is empty', () => {
     expect(hillFormula(createDocument()).size).toBe(0);
   });
+
+  test('selection filter counts only the selected atoms, H from full context', () => {
+    const doc = withMolecule(createDocument(), acetic);
+    // select just the methyl carbon (atom 1)
+    const counts = hillFormula(doc, new Set([1]));
+    expect(counts.get('C')).toBe(1);
+    expect(counts.get('H')).toBe(3); // CH3
+    expect(counts.get('O')).toBeUndefined();
+    // select the two oxygens
+    const oxygens = hillFormula(doc, new Set([3, 4]));
+    expect(oxygens.get('O')).toBe(2);
+    expect(oxygens.get('H')).toBe(1); // the OH hydrogen
+  });
 });
 
 describe('molecularWeight', () => {

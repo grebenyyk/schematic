@@ -80,8 +80,8 @@ const editor = new Editor(mount, {
     undoBtn.disabled = !canUndo;
     redoBtn.disabled = !canRedo;
   },
-  onDocumentChange: (doc) => {
-    const counts = hillFormula(doc);
+  onDocumentChange: (doc, selection) => {
+    const counts = hillFormula(doc, selection.atoms.size > 0 ? selection.atoms : undefined);
     statusline.textContent = counts.size === 0
       ? 'draw: drag to bond · click a bond to cycle order · type an element over an atom'
       : `${formulaText(counts)} · ${molecularWeight(counts).toFixed(2)} g/mol`;
