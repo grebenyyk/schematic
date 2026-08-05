@@ -178,16 +178,22 @@ export class Editor implements ToolContext {
     const base = this.history.document;
     // during a move/rotate drag, render the selection transformed
     let doc = base;
-    if (this.previewDelta && this.selection.atoms.size > 0) {
-      doc = new MoveAtoms([...this.selection.atoms], this.previewDelta).do(base);
-    } else if (this.previewRotate && this.selection.atoms.size > 0) {
+    const previewingMove = this.previewDelta !== null && this.selection.atoms.size > 0;
+    const previewingRotate = this.previewRotate !== null && this.selection.atoms.size > 0;
+    if (previewingMove) {
+      doc = new MoveAtoms([...this.selection.atoms], this.previewDelta!).do(base);
+    } else if (previewingRotate) {
       doc = new RotateAtoms(
-        [...this.selection.atoms], this.previewRotate.center, this.previewRotate.angle).do(base);
+        [...this.selection.atoms], this.previewRotate!.center, this.previewRotate!.angle).do(base);
     }
-    // anchored, grow-only camera — growth is monotonic, never a recenter
+    // anchored, grow-only camera; frozen while a gesture previews so the
+    // view doesn't chase the dragged fragment
     const rect = this.svg.getBoundingClientRect();
-    this.camera = updateCamera(
-      this.camera, contentViewBox(doc, this.style), rect.width || 1, rect.height || 1);
+    const previewing = previewingMove || previewingRotate;
+    if (!previewing || !this.camera) {
+      this.camera = updateCamera(
+        this.camera, contentViewBox(doc, this.style), rect.width || 1, rect.height || 1);
+    }
     const viewBox = {
       x: this.camera.x,
       y: this.camera.y,
