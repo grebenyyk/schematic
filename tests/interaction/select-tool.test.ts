@@ -15,6 +15,7 @@ function makeCtx(initial: Document) {
     nextId: 1000,
     decorations: [] as Decoration[][],
     selection: { atoms: new Set<number>(), bonds: new Set<number>() } as Selection,
+    previewDelta: null as { x: number; y: number } | null,
   };
   const ctx: ToolContext = {
     style: ACS1996,
@@ -28,6 +29,7 @@ function makeCtx(initial: Document) {
     setDecorations(d: Decoration[]) { state.decorations.push(d); },
     getSelection: () => state.selection,
     setSelection: (s) => { state.selection = s; },
+    setPreviewMove: (d) => { state.previewDelta = d; },
   };
   return { ctx, state };
 }
@@ -106,6 +108,37 @@ describe('SelectTool marquee', () => {
   });
 });
 
+describe('SelectTool lasso', () => {
+  test('lasso around a part of the molecule selects enclosed atoms and bonds', () => {
+    const { ctx, state } = makeCtx(chain3());
+    const tool = new SelectTool('lasso');
+    // triangle around atoms 1 and 2, atom 3 outside
+    tool.onDown(at(-5, -5), ctx);
+    tool.onMove(at(25, -5), ctx);
+    tool.onMove(at(10, 10), ctx);
+    tool.onUp(at(10, 10), ctx);
+    expect([...state.selection.atoms].sort()).toEqual([1, 2]);
+    expect([...state.selection.bonds]).toEqual([10]);
+  });
+
+  test('lasso shows a dashed path while drawing', () => {
+    const { ctx, state } = makeCtx(chain3());
+    const tool = new SelectTool('lasso');
+    tool.onDown(at(-5, -5), ctx);
+    tool.onMove(at(25, -5), ctx);
+    expect(state.decorations.at(-1)?.some((d) => d.type === 'lasso')).toBe(true);
+  });
+
+  test('rect mode is the default', () => {
+    const { ctx, state } = makeCtx(chain3());
+    const tool = new SelectTool();
+    tool.onDown(at(-5, -5), ctx);
+    tool.onMove(at(20, 5), ctx);
+    tool.onUp(at(20, 5), ctx);
+    expect([...state.selection.atoms].sort()).toEqual([1, 2]);
+  });
+});
+
 describe('SelectTool move', () => {
   test('dragging a selected atom moves the whole selection in one command', () => {
     const { ctx, state } = makeCtx(chain3());
@@ -121,6 +154,23 @@ describe('SelectTool move', () => {
     expect(findAtom(state.doc, 1)?.atom.pos).toEqual({ x: 10, y: 20 });
     expect(findAtom(state.doc, 2)?.atom.pos).toEqual({ x: 24.4, y: 20 });
     expect(findAtom(state.doc, 3)?.atom.pos).toEqual({ x: 28.8, y: 0 }); // untouched
+  });
+
+  test('during a move drag the context gets a live preview delta, cleared on drop', () => {
+    const { ctx, state } = makeCtx(chain3());
+    const tool = new SelectTool();
+    tool.onDown(at(-5, -5), ctx);
+    tool.onMove(at(20, 5), ctx);
+    tool.onUp(at(20, 5), ctx);
+    tool.onDown(at(0.3, 0.3), ctx);
+    tool.onMove(at(10.3, 20.3), ctx);
+    expect(state.previewDelta).not.toBeNull();
+    expect(state.previewDelta!.x).toBeCloseTo(10);
+    expect(state.previewDelta!.y).toBeCloseTo(20);
+    expect(findAtom(state.doc, 1)?.atom.pos).toEqual({ x: 0, y: 0 }); // not yet committed
+    tool.onUp(at(10.3, 20.3), ctx);
+    expect(state.previewDelta).toBeNull();
+    expect(findAtom(state.doc, 1)?.atom.pos).toEqual({ x: 10, y: 20 });
   });
 
   test('dragging an unselected atom selects it and moves it alone', () => {

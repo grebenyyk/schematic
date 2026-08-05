@@ -24,7 +24,8 @@ export type Decoration =
   | { type: 'snap-guide'; from: Vec2; to: Vec2 }
   | { type: 'select-atom'; pos: Vec2 }
   | { type: 'select-bond'; center: Vec2; dir: Vec2; length: number }
-  | { type: 'marquee'; from: Vec2; to: Vec2 };
+  | { type: 'marquee'; from: Vec2; to: Vec2 }
+  | { type: 'lasso'; points: Vec2[] };
 
 /** Hover/merge highlight for an atom: full-label outline when labeled, circle otherwise. */
 export function atomHoverDecoration(doc: MolDocument, atomId: number, style: StyleSheet): Decoration {
@@ -97,9 +98,10 @@ export function renderDecorations(
       c.setAttribute('cx', String(d.pos.x));
       c.setAttribute('cy', String(d.pos.y));
       c.setAttribute('r', String(style.labelSizePt * 0.35));
-      c.setAttribute('fill', 'none');
-      c.setAttribute('stroke', style.colors.hover);
-      c.setAttribute('stroke-width', String(style.lineWidthPt));
+      c.setAttribute('fill', style.colors.selection);
+      c.setAttribute('fill-opacity', '0.3');
+      c.setAttribute('stroke', style.colors.selection);
+      c.setAttribute('stroke-width', String(style.lineWidthPt * 0.75));
       group.appendChild(c);
     } else if (d.type === 'select-bond') {
       const line = doc.createElementNS(SVG_NS, 'line');
@@ -109,11 +111,22 @@ export function renderDecorations(
       line.setAttribute('y1', String(d.center.y - hy));
       line.setAttribute('x2', String(d.center.x + hx));
       line.setAttribute('y2', String(d.center.y + hy));
-      line.setAttribute('stroke', style.colors.hover);
+      line.setAttribute('stroke', style.colors.selection);
       line.setAttribute('stroke-width', String(style.boldWidthPt * 0.8));
       line.setAttribute('stroke-linecap', 'round');
-      line.setAttribute('opacity', '0.3');
+      line.setAttribute('opacity', '0.35');
       group.appendChild(line);
+    } else if (d.type === 'lasso') {
+      if (d.points.length >= 2) {
+        const poly = doc.createElementNS(SVG_NS, 'polygon');
+        poly.setAttribute('points', d.points.map((p) => `${p.x},${p.y}`).join(' '));
+        poly.setAttribute('fill', style.colors.hover);
+        poly.setAttribute('fill-opacity', '0.12');
+        poly.setAttribute('stroke', style.colors.hover);
+        poly.setAttribute('stroke-width', String(style.lineWidthPt));
+        poly.setAttribute('stroke-dasharray', '2 2');
+        group.appendChild(poly);
+      }
     } else if (d.type === 'marquee') {
       const rect = doc.createElementNS(SVG_NS, 'rect');
       rect.setAttribute('x', String(Math.min(d.from.x, d.to.x)));

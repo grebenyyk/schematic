@@ -9,12 +9,22 @@
   <body>
     <header id="toolbar">
       <span id="logo">schematic</span>
-      <button id="tool-select" class="tool" title="Select (V) — marquee, move, delete">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-             stroke-width="2" stroke-linecap="round" stroke-dasharray="3 2" aria-hidden="true">
-          <rect x="4" y="5" width="16" height="14" rx="1" />
-        </svg>
-      </button>
+      <span id="select-wrap">
+        <button id="tool-select" class="tool" title="Select (V) — marquee, move, delete">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-dasharray="3 2" aria-hidden="true">
+            <rect x="4" y="5" width="16" height="14" rx="1" />
+          </svg>
+        </button><button id="select-more" title="Selection mode" aria-label="Selection mode">
+          <svg viewBox="0 0 8 8" width="7" height="7" fill="currentColor" aria-hidden="true">
+            <path d="M1 2.5 L4 6 L7 2.5 Z" />
+          </svg>
+        </button>
+        <div id="select-menu" hidden>
+          <button data-mode="rect">Rectangle</button>
+          <button data-mode="lasso">Lasso</button>
+        </div>
+      </span>
       <button id="tool-bond" class="tool active" title="Bond tool (draw single bonds)">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
              stroke-width="2.2" stroke-linecap="round" aria-hidden="true">

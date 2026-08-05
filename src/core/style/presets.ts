@@ -14,7 +14,7 @@ export const ACS1996: StyleSheet = {
   labelColorMode: 'mono',
   aromaticStyle: 'kekule',
   wedgeTaper: 'sharp',
-  colors: { bond: '#000', selection: '#3a7bd5', hover: '#9fc3ee', background: '#fff' },
+  colors: { bond: '#000', selection: '#2f9e44', hover: '#9fc3ee', background: '#fff' },
 };
 
 /** Modern colored variant. */

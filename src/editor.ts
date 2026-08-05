@@ -1,11 +1,11 @@
-import { vec } from './core/geometry/vec2';
+import { vec, type Vec2 } from './core/geometry/vec2';
 import { pick } from './core/geometry/hit';
 import { createDocument, findAtom, findBond, type Document } from './core/model/document';
 import { ACS1996 } from './core/style/presets';
 import type { StyleSheet } from './core/style/stylesheet';
 import type { Command } from './core/commands/command';
 import { History } from './core/commands/history';
-import { SetBondOrder, SetElement, SetCharge, AddAtom, DeleteAtoms, DeleteBonds } from './core/commands/ops';
+import { SetBondOrder, SetElement, SetCharge, AddAtom, DeleteAtoms, DeleteBonds, MoveAtoms } from './core/commands/ops';
 import { CompoundCommand } from './core/commands/command';
 import { ElementTyper } from './interaction/element-typer';
 import { canSetBondOrder } from './core/chem/valence';
@@ -155,17 +155,28 @@ export class Editor implements ToolContext {
 
   private lastRenderedDoc: Document | null = null;
   private viewBox: ViewBox | null = null;
+  private previewDelta: Vec2 | null = null;
+
+  setPreviewMove(delta: Vec2 | null): void {
+    this.previewDelta = delta;
+    this.render();
+  }
 
   private render(): void {
+    const base = this.history.document;
+    // during a move drag, render the selection translated by the delta
+    const doc = this.previewDelta && this.selection.atoms.size > 0
+      ? new MoveAtoms([...this.selection.atoms], this.previewDelta).do(base)
+      : base;
     // stable camera: the view only ever grows to cover new content
-    const content = contentViewBox(this.history.document, this.style);
+    const content = contentViewBox(doc, this.style);
     this.viewBox = this.viewBox ? expandViewBox(this.viewBox, content) : content;
-    renderDocument(document, this.svg, this.history.document, this.style,
-      [...selectionDecorations(this), ...this.decorations], this.viewBox);
+    renderDocument(document, this.svg, doc, this.style,
+      [...selectionDecorations(doc, this.selection), ...this.decorations], this.viewBox);
     this.onHistoryChange?.(this.history.canUndo, this.history.canRedo);
-    if (this.history.document !== this.lastRenderedDoc) {
-      this.lastRenderedDoc = this.history.document;
-      this.onDocumentChange?.(this.history.document);
+    if (base !== this.lastRenderedDoc) {
+      this.lastRenderedDoc = base;
+      this.onDocumentChange?.(base);
     }
   }
 

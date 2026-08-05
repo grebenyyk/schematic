@@ -51,6 +51,73 @@ body {
   color: #1f5cb0;
 }
 
+#select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+#select-wrap #tool-select {
+  border-radius: 4px 0 0 4px;
+}
+
+#select-more {
+  width: 14px;
+  height: 28px;
+  border: 1px solid #d4d4d4;
+  border-left: none;
+  border-radius: 0 4px 4px 0;
+  background: #fff;
+  color: #777;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+#select-wrap #tool-select.active + #select-more {
+  background: #e8f0fa;
+  border-color: #3a7bd5;
+  color: #1f5cb0;
+}
+
+#select-menu[hidden] {
+  display: none;
+}
+
+#select-menu {
+  position: absolute;
+  top: 32px;
+  left: 0;
+  z-index: 10;
+  background: #fff;
+  border: 1px solid #d4d4d4;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  min-width: 96px;
+}
+
+#select-menu button {
+  border: none;
+  background: none;
+  padding: 6px 10px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+#select-menu button:hover {
+  background: #f0f4f9;
+}
+
+#select-menu button.active-mode {
+  color: #1f5cb0;
+  font-weight: 600;
+}
+
 #canvas-host {
   flex: 1;
   min-height: 0;

@@ -94,10 +94,16 @@ redoBtn.addEventListener('click', () => editor.redo());
 const bondToolBtn = document.getElementById('tool-bond') as HTMLButtonElement;
 const chainToolBtn = document.getElementById('tool-chain') as HTMLButtonElement;
 const selectToolBtn = document.getElementById('tool-select') as HTMLButtonElement;
+const selectMoreBtn = document.getElementById('select-more') as HTMLButtonElement;
+const selectMenu = document.getElementById('select-menu') as HTMLDivElement;
+
+let selectMode: 'rect' | 'lasso' = 'rect';
 
 function selectTool(which: 'bond' | 'chain' | 'select') {
   editor.setTool(
-    which === 'bond' ? new BondTool() : which === 'chain' ? new ChainTool() : new SelectTool());
+    which === 'bond' ? new BondTool()
+      : which === 'chain' ? new ChainTool()
+        : new SelectTool(selectMode));
   bondToolBtn.classList.toggle('active', which === 'bond');
   chainToolBtn.classList.toggle('active', which === 'chain');
   selectToolBtn.classList.toggle('active', which === 'select');
@@ -105,6 +111,21 @@ function selectTool(which: 'bond' | 'chain' | 'select') {
 bondToolBtn.addEventListener('click', () => selectTool('bond'));
 chainToolBtn.addEventListener('click', () => selectTool('chain'));
 selectToolBtn.addEventListener('click', () => selectTool('select'));
+
+selectMoreBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  selectMenu.hidden = !selectMenu.hidden;
+});
+selectMenu.querySelectorAll('button').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    selectMode = (btn as HTMLButtonElement).dataset.mode as 'rect' | 'lasso';
+    selectMenu.querySelectorAll('button').forEach((b) =>
+      b.classList.toggle('active-mode', b === btn));
+    selectMenu.hidden = true;
+    selectTool('select');
+  });
+});
+document.addEventListener('click', () => { selectMenu.hidden = true; });
 
 window.addEventListener('keydown', (e) => {
   if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'v') selectTool('select');

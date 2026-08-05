@@ -28,6 +28,7 @@ function makeCtx(initial: Document) {
     setDecorations(d: Decoration[]) { state.decorations.push(d); },
     getSelection: () => ({ atoms: new Set(), bonds: new Set() }),
     setSelection: (_s: Selection) => {},
+    setPreviewMove: () => {},
   };
   return { ctx, state };
 }

@@ -24,6 +24,8 @@ export interface ToolContext {
   setDecorations(decorations: Decoration[]): void;
   getSelection(): Selection;
   setSelection(selection: Selection): void;
+  /** Show the selection translated by delta as a live preview (null = off). */
+  setPreviewMove(delta: Vec2 | null): void;
 }
 
 export interface Tool {
