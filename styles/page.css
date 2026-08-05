@@ -57,6 +57,17 @@ body {
   align-items: center;
 }
 
+#select-wrap #tool-select {
+  position: relative;
+}
+
+#select-corner {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  pointer-events: none;
+}
+
 #select-menu[hidden] {
   display: none;
 }
