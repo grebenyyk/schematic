@@ -27,6 +27,8 @@ export interface EditorConfig {
   document?: Document;
   onHistoryChange?: (canUndo: boolean, canRedo: boolean) => void;
   onDocumentChange?: (doc: Document, selection: Selection) => void;
+  /** Tool hotkeys: 'v' always fires, 'b' only when the bond tool isn't active. */
+  onToolShortcut?: (key: 'v' | 'b') => void;
 }
 
 export class Editor implements ToolContext {
@@ -38,6 +40,7 @@ export class Editor implements ToolContext {
   private nextId: number;
   private lastPointer: PointerInfo | null = null;
   private readonly onHistoryChange: ((canUndo: boolean, canRedo: boolean) => void) | undefined;
+  private readonly onToolShortcut: ((key: 'v' | 'b') => void) | undefined;
   private readonly onDocumentChange: ((doc: Document, selection: Selection) => void) | undefined;
 
   constructor(mount: HTMLElement, config: EditorConfig = {}) {
@@ -47,6 +50,7 @@ export class Editor implements ToolContext {
     this.nextId = initial.meta.nextId;
     this.onHistoryChange = config.onHistoryChange;
     this.onDocumentChange = config.onDocumentChange;
+    this.onToolShortcut = config.onToolShortcut;
     this.tool = new BondTool();
 
     this.svg = document.createElementNS(SVG_NS, 'svg');
@@ -294,6 +298,12 @@ export class Editor implements ToolContext {
   private attachKeyboard(): void {
     window.addEventListener('keydown', (e) => {
       if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (e.key === 'v' && this.onToolShortcut) { this.onToolShortcut('v'); e.preventDefault(); return; }
+        if (e.key === 'b' && this.toolKind !== 'bond' && this.onToolShortcut) {
+          this.onToolShortcut('b');
+          e.preventDefault();
+          return;
+        }
         if (e.key === '+' || e.key === '=') { this.applyCharge(1); e.preventDefault(); return; }
         if (e.key === '-') { this.applyCharge(-1); e.preventDefault(); return; }
         if (/^[a-zA-Z]$/.test(e.key) && this.typer.key(e.key)) { e.preventDefault(); return; }

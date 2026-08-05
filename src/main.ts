@@ -86,6 +86,7 @@ const editor = new Editor(mount, {
       ? 'draw: drag to bond · click a bond to cycle order · type an element over an atom'
       : `${formulaText(counts)} · ${molecularWeight(counts).toFixed(2)} g/mol`;
   },
+  onToolShortcut: (key) => selectTool(key === 'v' ? 'select' : 'bond'),
 });
 
 undoBtn.addEventListener('click', () => editor.undo());
@@ -135,10 +136,6 @@ selectMenu.querySelectorAll('button').forEach((btn) => {
   });
 });
 document.addEventListener('click', () => { selectMenu.hidden = true; });
-
-window.addEventListener('keydown', (e) => {
-  if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'v') selectTool('select');
-});
 
 // debug/e2e hook
 (window as unknown as { editor: Editor }).editor = editor;
