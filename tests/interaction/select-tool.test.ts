@@ -159,7 +159,8 @@ describe('SelectTool rotate handle', () => {
     const target = -87.73 * (Math.PI / 180);
     tool.onMove(at(c.x + r * Math.cos(target), c.y + r * Math.sin(target)), ctx);
     expect(state.previewRotate).not.toBeNull();
-    expect(state.previewRotate!.angle).toBeCloseTo(-Math.PI / 3, 3); // snapped to -60°
+    // preview is smooth (raw angle), snap applies on drop
+    expect(state.previewRotate!.angle).toBeCloseTo(target - Math.atan2(-8, 15.2), 3);
     tool.onUp(at(c.x + r * Math.cos(target), c.y + r * Math.sin(target)), ctx);
 
     // atom 2 (14.4, 0) rotated -60° around (7.2, 0): rel (7.2,0) → (3.6, -6.235)

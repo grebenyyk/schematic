@@ -178,21 +178,16 @@ export class Editor implements ToolContext {
     const base = this.history.document;
     // during a move/rotate drag, render the selection transformed
     let doc = base;
-    let previewing = false;
     if (this.previewDelta && this.selection.atoms.size > 0) {
       doc = new MoveAtoms([...this.selection.atoms], this.previewDelta).do(base);
-      previewing = true;
     } else if (this.previewRotate && this.selection.atoms.size > 0) {
       doc = new RotateAtoms(
         [...this.selection.atoms], this.previewRotate.center, this.previewRotate.angle).do(base);
-      previewing = true;
     }
-    // anchored, grow-only camera; frozen while a gesture previews
+    // anchored, grow-only camera — growth is monotonic, never a recenter
     const rect = this.svg.getBoundingClientRect();
-    if (!previewing || !this.camera) {
-      this.camera = updateCamera(
-        this.camera, contentViewBox(doc, this.style), rect.width || 1, rect.height || 1);
-    }
+    this.camera = updateCamera(
+      this.camera, contentViewBox(doc, this.style), rect.width || 1, rect.height || 1);
     const viewBox = {
       x: this.camera.x,
       y: this.camera.y,

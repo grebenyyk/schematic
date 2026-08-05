@@ -87,9 +87,9 @@ export class SelectTool implements Tool {
       ctx.setPreviewMove(sub(e.pos, this.start));
     } else if (this.mode === 'rotate' && this.rotateCenter) {
       const c = this.rotateCenter;
+      // smooth preview; the 15° snap applies on drop
       const a = Math.atan2(e.pos.y - c.y, e.pos.x - c.x) - this.rotateStartAngle;
-      const snapped = e.alt ? a : Math.round(a / (15 * Math.PI / 180)) * (15 * Math.PI / 180);
-      ctx.setPreviewRotate({ center: c, angle: snapped });
+      ctx.setPreviewRotate({ center: c, angle: a });
     }
   }
 
