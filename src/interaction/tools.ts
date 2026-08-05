@@ -26,6 +26,8 @@ export interface ToolContext {
   setSelection(selection: Selection): void;
   /** Show the selection translated by delta as a live preview (null = off). */
   setPreviewMove(delta: Vec2 | null): void;
+  /** Show the selection rotated around center as a live preview (null = off). */
+  setPreviewRotate(preview: { center: Vec2; angle: number } | null): void;
 }
 
 export interface Tool {

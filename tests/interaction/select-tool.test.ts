@@ -16,6 +16,7 @@ function makeCtx(initial: Document) {
     decorations: [] as Decoration[][],
     selection: { atoms: new Set<number>(), bonds: new Set<number>() } as Selection,
     previewDelta: null as { x: number; y: number } | null,
+    previewRotate: null as { center: { x: number; y: number }; angle: number } | null,
   };
   const ctx: ToolContext = {
     style: ACS1996,
@@ -30,6 +31,7 @@ function makeCtx(initial: Document) {
     getSelection: () => state.selection,
     setSelection: (s) => { state.selection = s; },
     setPreviewMove: (d) => { state.previewDelta = d; },
+    setPreviewRotate: (p) => { state.previewRotate = p; },
   };
   return { ctx, state };
 }
@@ -136,6 +138,35 @@ describe('SelectTool lasso', () => {
     tool.onMove(at(20, 5), ctx);
     tool.onUp(at(20, 5), ctx);
     expect([...state.selection.atoms].sort()).toEqual([1, 2]);
+  });
+});
+
+describe('SelectTool rotate handle', () => {
+  test('dragging the corner handle rotates the selection by a 15°-snapped angle', () => {
+    const { ctx, state } = makeCtx(chain3());
+    const tool = new SelectTool();
+    // select atoms 1 and 2
+    tool.onDown(at(-5, -5), ctx);
+    tool.onMove(at(20, 5), ctx);
+    tool.onUp(at(20, 5), ctx);
+
+    // handle: bbox (0,0)-(14.4,0) top-right + (8,-8) → (22.4, -8)
+    // center of selection: (7.2, 0). start angle: atan2(-8, 15.2) ≈ -27.7°
+    tool.onDown(at(22.4, -8), ctx);
+    // drag to ~60° more clockwise: target angle ≈ -87.7° at same radius
+    const c = { x: 7.2, y: 0 };
+    const r = Math.hypot(15.2, 8);
+    const target = -87.73 * (Math.PI / 180);
+    tool.onMove(at(c.x + r * Math.cos(target), c.y + r * Math.sin(target)), ctx);
+    expect(state.previewRotate).not.toBeNull();
+    expect(state.previewRotate!.angle).toBeCloseTo(-Math.PI / 3, 3); // snapped to -60°
+    tool.onUp(at(c.x + r * Math.cos(target), c.y + r * Math.sin(target)), ctx);
+
+    // atom 2 (14.4, 0) rotated -60° around (7.2, 0): rel (7.2,0) → (3.6, -6.235)
+    const a2 = findAtom(state.doc, 2)!.atom.pos;
+    expect(a2.x).toBeCloseTo(10.8, 3);
+    expect(a2.y).toBeCloseTo(-6.235, 3);
+    expect(state.previewRotate).toBeNull();
   });
 });
 

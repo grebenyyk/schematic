@@ -234,6 +234,92 @@ export class MoveAtoms implements Command {
   }
 }
 
+/** Rotate a set of atoms around a center by an angle (radians). */
+export class RotateAtoms implements Command {
+  readonly label = 'Rotate';
+
+  constructor(
+    private readonly atomIds: number[],
+    private readonly center: Vec2,
+    private readonly angle: number,
+  ) {}
+
+  do(doc: Document): Document {
+    return this.rot(doc, this.angle);
+  }
+
+  undo(doc: Document): Document {
+    return this.rot(doc, -this.angle);
+  }
+
+  private rot(doc: Document, angle: number): Document {
+    const ids = new Set(this.atomIds);
+    const c = Math.cos(angle);
+    const s = Math.sin(angle);
+    return {
+      ...doc,
+      molecules: doc.molecules.map((m) => {
+        let out = m;
+        for (const id of ids) {
+          const a = out.atoms.get(id);
+          if (a) {
+            const dx = a.pos.x - this.center.x;
+            const dy = a.pos.y - this.center.y;
+            out = updateAtom(out, id, {
+              pos: {
+                x: this.center.x + dx * c - dy * s,
+                y: this.center.y + dx * s + dy * c,
+              },
+            });
+          }
+        }
+        return out;
+      }),
+    };
+  }
+}
+
+/** Uniformly scale a set of atoms around a center. */
+export class ScaleAtoms implements Command {
+  readonly label = 'Scale';
+
+  constructor(
+    private readonly atomIds: number[],
+    private readonly center: Vec2,
+    private readonly factor: number,
+  ) {}
+
+  do(doc: Document): Document {
+    return this.scaleBy(doc, this.factor);
+  }
+
+  undo(doc: Document): Document {
+    return this.scaleBy(doc, 1 / this.factor);
+  }
+
+  private scaleBy(doc: Document, f: number): Document {
+    const ids = new Set(this.atomIds);
+    return {
+      ...doc,
+      molecules: doc.molecules.map((m) => {
+        let out = m;
+        for (const id of ids) {
+          const a = out.atoms.get(id);
+          if (a) {
+            out = updateAtom(out, id, {
+              pos: {
+                x: this.center.x + (a.pos.x - this.center.x) * f,
+                y: this.center.y + (a.pos.y - this.center.y) * f,
+              },
+            });
+          }
+        }
+        return out;
+      }),
+    };
+  }
+}
+
 /** Delete bonds (atoms stay). Snapshot-based undo, like DeleteAtoms. */
 export class DeleteBonds implements Command {
   readonly label = 'Delete bond';

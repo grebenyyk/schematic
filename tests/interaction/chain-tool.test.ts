@@ -24,6 +24,7 @@ function makeCtx(initial: Document) {
     getSelection: () => ({ atoms: new Set(), bonds: new Set() }),
     setSelection: (_s: Selection) => {},
     setPreviewMove: () => {},
+    setPreviewRotate: () => {},
   };
   return { ctx, state };
 }

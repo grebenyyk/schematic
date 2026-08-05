@@ -33,15 +33,46 @@ export function clientToPt(client: Vec2, rect: ClientRect, box: ViewBox): Vec2 {
   };
 }
 
+/** Anchored camera: top-left origin plus a stored pt-per-CSS-px scale. */
+export interface Camera {
+  x: number;
+  y: number;
+  scale: number;
+}
+
 /**
- * Grow-only viewport: returns the union of the current view and the content
- * bounds. Moving fragments never shifts the camera; the view only expands
- * when content leaves it, keeping the existing region anchored.
+ * Grow-only, anchor-stable camera. Returns the SAME object when the content
+ * already fits (in-view moves never shift the view). On overflow the origin
+ * only moves left/up and the scale only grows — never a recenter or zoom-in.
+ * Pair with preserveAspectRatio="xMinYMin meet".
  */
-export function expandViewBox(current: ViewBox, content: ViewBox): ViewBox {
-  const x1 = Math.min(current.x, content.x);
-  const y1 = Math.min(current.y, content.y);
-  const x2 = Math.max(current.x + current.width, content.x + content.width);
-  const y2 = Math.max(current.y + current.height, content.y + content.height);
-  return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+export function updateCamera(
+  cam: Camera | null,
+  content: ViewBox,
+  rectW: number,
+  rectH: number,
+): Camera {
+  if (!cam) {
+    return {
+      x: content.x,
+      y: content.y,
+      scale: Math.max(content.width / rectW, content.height / rectH),
+    };
+  }
+  const curW = cam.scale * rectW;
+  const curH = cam.scale * rectH;
+  // epsilon: content sitting exactly on the edge (within float noise and
+  // sub-pixel amounts) counts as fitting — otherwise the camera grows by a
+  // hair on every such render, which reads as a jiggle
+  const EPS = 0.5;
+  const fits =
+    content.x >= cam.x - EPS && content.y >= cam.y - EPS &&
+    content.x + content.width <= cam.x + curW + EPS &&
+    content.y + content.height <= cam.y + curH + EPS;
+  if (fits) return cam;
+  const x = Math.min(cam.x, content.x);
+  const y = Math.min(cam.y, content.y);
+  const w = Math.max(cam.x + curW, content.x + content.width) - x;
+  const h = Math.max(cam.y + curH, content.y + content.height) - y;
+  return { x, y, scale: Math.max(w / rectW, h / rectH) };
 }

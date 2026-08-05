@@ -6,6 +6,7 @@ import { BondTool } from './interaction/tools/bond';
 import { ChainTool } from './interaction/tools/chain';
 import { SelectTool } from './interaction/tools/select';
 import { hillFormula, molecularWeight, formulaText } from './core/chem/formula';
+import { rectifyCommand } from './core/commands/rectify';
 
 /** Benzene ring (kekulé), centered at (cx, cy). */
 function benzene(doc: Document, cx: number, cy: number): Document {
@@ -94,7 +95,6 @@ redoBtn.addEventListener('click', () => editor.redo());
 const bondToolBtn = document.getElementById('tool-bond') as HTMLButtonElement;
 const chainToolBtn = document.getElementById('tool-chain') as HTMLButtonElement;
 const selectToolBtn = document.getElementById('tool-select') as HTMLButtonElement;
-const selectMoreBtn = document.getElementById('select-more') as HTMLButtonElement;
 const selectMenu = document.getElementById('select-menu') as HTMLDivElement;
 
 let selectMode: 'rect' | 'lasso' = 'rect';
@@ -110,11 +110,15 @@ function selectTool(which: 'bond' | 'chain' | 'select') {
 }
 bondToolBtn.addEventListener('click', () => selectTool('bond'));
 chainToolBtn.addEventListener('click', () => selectTool('chain'));
-selectToolBtn.addEventListener('click', () => selectTool('select'));
 
-selectMoreBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
-  selectMenu.hidden = !selectMenu.hidden;
+// bottom-right corner of the select button opens the mode menu
+selectToolBtn.addEventListener('click', (e) => {
+  const r = selectToolBtn.getBoundingClientRect();
+  if (e.clientX > r.right - 10 && e.clientY > r.bottom - 10) {
+    selectMenu.hidden = !selectMenu.hidden;
+    return;
+  }
+  selectTool('select');
 });
 selectMenu.querySelectorAll('button').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -126,6 +130,16 @@ selectMenu.querySelectorAll('button').forEach((btn) => {
   });
 });
 document.addEventListener('click', () => { selectMenu.hidden = true; });
+
+const rectifyBtn = document.getElementById('rectify') as HTMLButtonElement;
+rectifyBtn.addEventListener('click', () => {
+  const sel = editor.getSelection();
+  const ids = sel.atoms.size > 0
+    ? [...sel.atoms]
+    : editor.document.molecules.flatMap((m) => [...m.atoms.keys()]);
+  const cmd = rectifyCommand(editor.document, ids, editor.style.bondLengthPt);
+  if (cmd) editor.commit(cmd);
+});
 
 window.addEventListener('keydown', (e) => {
   if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'v') selectTool('select');

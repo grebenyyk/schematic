@@ -25,7 +25,8 @@ export type Decoration =
   | { type: 'select-atom'; pos: Vec2 }
   | { type: 'select-bond'; center: Vec2; dir: Vec2; length: number }
   | { type: 'marquee'; from: Vec2; to: Vec2 }
-  | { type: 'lasso'; points: Vec2[] };
+  | { type: 'lasso'; points: Vec2[] }
+  | { type: 'rotate-handle'; pos: Vec2 };
 
 /** Hover/merge highlight for an atom: full-label outline when labeled, circle otherwise. */
 export function atomHoverDecoration(doc: MolDocument, atomId: number, style: StyleSheet): Decoration {
@@ -127,6 +128,34 @@ export function renderDecorations(
         poly.setAttribute('stroke-dasharray', '2 2');
         group.appendChild(poly);
       }
+    } else if (d.type === 'rotate-handle') {
+      // small circular-arrow affordance at the selection's corner
+      const r = style.labelSizePt * 0.45;
+      const circle = doc.createElementNS(SVG_NS, 'circle');
+      circle.setAttribute('cx', String(d.pos.x));
+      circle.setAttribute('cy', String(d.pos.y));
+      circle.setAttribute('r', String(r));
+      circle.setAttribute('fill', style.colors.background);
+      circle.setAttribute('stroke', style.colors.selection);
+      circle.setAttribute('stroke-width', String(style.lineWidthPt));
+      group.appendChild(circle);
+      const arc = doc.createElementNS(SVG_NS, 'path');
+      const ir = r * 0.55;
+      arc.setAttribute(
+        'd',
+        `M ${d.pos.x - ir} ${d.pos.y} A ${ir} ${ir} 0 1 1 ${d.pos.x + ir * 0.2} ${d.pos.y - ir * 0.98}`,
+      );
+      arc.setAttribute('fill', 'none');
+      arc.setAttribute('stroke', style.colors.selection);
+      arc.setAttribute('stroke-width', String(style.lineWidthPt));
+      group.appendChild(arc);
+      const head = doc.createElementNS(SVG_NS, 'path');
+      head.setAttribute(
+        'd',
+        `M ${d.pos.x + ir * 0.55} ${d.pos.y - ir * 1.25} L ${d.pos.x + ir * 0.2} ${d.pos.y - ir * 0.98} L ${d.pos.x + ir * 0.62} ${d.pos.y - ir * 0.62} Z`,
+      );
+      head.setAttribute('fill', style.colors.selection);
+      group.appendChild(head);
     } else if (d.type === 'marquee') {
       const rect = doc.createElementNS(SVG_NS, 'rect');
       rect.setAttribute('x', String(Math.min(d.from.x, d.to.x)));

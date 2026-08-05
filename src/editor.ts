@@ -5,14 +5,14 @@ import { ACS1996 } from './core/style/presets';
 import type { StyleSheet } from './core/style/stylesheet';
 import type { Command } from './core/commands/command';
 import { History } from './core/commands/history';
-import { SetBondOrder, SetElement, SetCharge, AddAtom, DeleteAtoms, DeleteBonds, MoveAtoms } from './core/commands/ops';
+import { SetBondOrder, SetElement, SetCharge, AddAtom, DeleteAtoms, DeleteBonds, MoveAtoms, RotateAtoms } from './core/commands/ops';
 import { CompoundCommand } from './core/commands/command';
 import { ElementTyper } from './interaction/element-typer';
 import { canSetBondOrder } from './core/chem/valence';
 import { selectionDecorations } from './interaction/tools/select';
 import type { Selection } from './interaction/tools';
 import { renderDocument, contentViewBox } from './render/renderer';
-import { clientToPt, expandViewBox, type ViewBox } from './render/viewport';
+import { clientToPt, updateCamera, type Camera } from './render/viewport';
 import type { Decoration } from './render/decorators';
 import { BondTool } from './interaction/tools/bond';
 import { ChainTool } from './interaction/tools/chain';
@@ -51,6 +51,7 @@ export class Editor implements ToolContext {
 
     this.svg = document.createElementNS(SVG_NS, 'svg');
     this.svg.setAttribute('class', 'canvas');
+    this.svg.setAttribute('preserveAspectRatio', 'xMinYMin meet');
     mount.appendChild(this.svg);
 
     this.attachPointer(mount);
@@ -154,25 +155,42 @@ export class Editor implements ToolContext {
   }
 
   private lastRenderedDoc: Document | null = null;
-  private viewBox: ViewBox | null = null;
+  private camera: Camera | null = null;
   private previewDelta: Vec2 | null = null;
+  private previewRotate: { center: Vec2; angle: number } | null = null;
 
   setPreviewMove(delta: Vec2 | null): void {
     this.previewDelta = delta;
     this.render();
   }
 
+  setPreviewRotate(preview: { center: Vec2; angle: number } | null): void {
+    this.previewRotate = preview;
+    this.render();
+  }
+
   private render(): void {
     const base = this.history.document;
-    // during a move drag, render the selection translated by the delta
-    const doc = this.previewDelta && this.selection.atoms.size > 0
-      ? new MoveAtoms([...this.selection.atoms], this.previewDelta).do(base)
-      : base;
-    // stable camera: the view only ever grows to cover new content
-    const content = contentViewBox(doc, this.style);
-    this.viewBox = this.viewBox ? expandViewBox(this.viewBox, content) : content;
+    // during a move/rotate drag, render the selection transformed
+    let doc = base;
+    if (this.previewDelta && this.selection.atoms.size > 0) {
+      doc = new MoveAtoms([...this.selection.atoms], this.previewDelta).do(base);
+    } else if (this.previewRotate && this.selection.atoms.size > 0) {
+      doc = new RotateAtoms(
+        [...this.selection.atoms], this.previewRotate.center, this.previewRotate.angle).do(base);
+    }
+    // anchored, grow-only camera — no recentering, no jiggle
+    const rect = this.svg.getBoundingClientRect();
+    this.camera = updateCamera(
+      this.camera, contentViewBox(doc, this.style), rect.width || 1, rect.height || 1);
+    const viewBox = {
+      x: this.camera.x,
+      y: this.camera.y,
+      width: this.camera.scale * (rect.width || 1),
+      height: this.camera.scale * (rect.height || 1),
+    };
     renderDocument(document, this.svg, doc, this.style,
-      [...selectionDecorations(doc, this.selection), ...this.decorations], this.viewBox);
+      [...selectionDecorations(doc, this.selection), ...this.decorations], viewBox);
     this.onHistoryChange?.(this.history.canUndo, this.history.canRedo);
     if (base !== this.lastRenderedDoc) {
       this.lastRenderedDoc = base;
