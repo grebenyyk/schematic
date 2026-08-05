@@ -133,9 +133,9 @@ describe('renderDecorations', () => {
       { type: 'marquee', from: vec(-5, -5), to: vec(20, 10) },
     ], ACS1996);
     const circle = g.querySelector('circle')!;
-    expect(circle.getAttribute('stroke')).toBe(ACS1996.colors.selection);
+    expect(circle.getAttribute('stroke')).toBe(ACS1996.colors.hover);
     const bondLine = g.querySelector('line')!;
-    expect(bondLine.getAttribute('stroke')).toBe(ACS1996.colors.selection);
+    expect(bondLine.getAttribute('stroke')).toBe(ACS1996.colors.hover);
     const rect = g.querySelector('rect')!;
     expect(rect.getAttribute('stroke-dasharray')).toBeTruthy();
     expect(rect.getAttribute('width')).toBe('25');

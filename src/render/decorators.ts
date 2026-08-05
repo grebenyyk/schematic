@@ -98,8 +98,8 @@ export function renderDecorations(
       c.setAttribute('cy', String(d.pos.y));
       c.setAttribute('r', String(style.labelSizePt * 0.35));
       c.setAttribute('fill', 'none');
-      c.setAttribute('stroke', style.colors.selection);
-      c.setAttribute('stroke-width', String(style.lineWidthPt * 1.5));
+      c.setAttribute('stroke', style.colors.hover);
+      c.setAttribute('stroke-width', String(style.lineWidthPt));
       group.appendChild(c);
     } else if (d.type === 'select-bond') {
       const line = doc.createElementNS(SVG_NS, 'line');
@@ -109,10 +109,10 @@ export function renderDecorations(
       line.setAttribute('y1', String(d.center.y - hy));
       line.setAttribute('x2', String(d.center.x + hx));
       line.setAttribute('y2', String(d.center.y + hy));
-      line.setAttribute('stroke', style.colors.selection);
-      line.setAttribute('stroke-width', String(style.boldWidthPt));
+      line.setAttribute('stroke', style.colors.hover);
+      line.setAttribute('stroke-width', String(style.boldWidthPt * 0.8));
       line.setAttribute('stroke-linecap', 'round');
-      line.setAttribute('opacity', '0.5');
+      line.setAttribute('opacity', '0.3');
       group.appendChild(line);
     } else if (d.type === 'marquee') {
       const rect = doc.createElementNS(SVG_NS, 'rect');

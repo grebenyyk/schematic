@@ -11,10 +11,12 @@ import { ElementTyper } from './interaction/element-typer';
 import { canSetBondOrder } from './core/chem/valence';
 import { selectionDecorations } from './interaction/tools/select';
 import type { Selection } from './interaction/tools';
-import { renderDocument } from './render/renderer';
-import { clientToPt } from './render/viewport';
+import { renderDocument, contentViewBox } from './render/renderer';
+import { clientToPt, expandViewBox, type ViewBox } from './render/viewport';
 import type { Decoration } from './render/decorators';
 import { BondTool } from './interaction/tools/bond';
+import { ChainTool } from './interaction/tools/chain';
+import { SelectTool } from './interaction/tools/select';
 import type { PointerInfo, Tool, ToolContext } from './interaction/tools';
 import { handleKeyDown } from './interaction/keyboard';
 
@@ -63,7 +65,39 @@ export class Editor implements ToolContext {
   setTool(tool: Tool): void {
     this.tool = tool;
     this.decorations = [];
+    this.updateCursor();
     this.render();
+  }
+
+  private get toolKind(): 'bond' | 'chain' | 'select' {
+    if (this.tool instanceof SelectTool) return 'select';
+    if (this.tool instanceof ChainTool) return 'chain';
+    return 'bond';
+  }
+
+  private draggingSelected = false;
+
+  private overSelected(): boolean {
+    if (!this.lastPointer) return false;
+    const hit = pick(this.document, this.lastPointer.pos, { atomRadius: 5, bondTolerance: 3 });
+    if (!hit) return false;
+    return hit.kind === 'atom'
+      ? this.selection.atoms.has(hit.id)
+      : this.selection.bonds.has(hit.id);
+  }
+
+  private updateCursor(): void {
+    const host = this.svg.parentElement;
+    if (!host) return;
+    if (this.toolKind !== 'select') {
+      host.style.cursor = 'crosshair';
+    } else if (this.draggingSelected) {
+      host.style.cursor = 'grabbing';
+    } else if (this.overSelected()) {
+      host.style.cursor = 'grab';
+    } else {
+      host.style.cursor = 'default';
+    }
   }
 
   private selection: Selection = { atoms: new Set(), bonds: new Set() };
@@ -120,10 +154,14 @@ export class Editor implements ToolContext {
   }
 
   private lastRenderedDoc: Document | null = null;
+  private viewBox: ViewBox | null = null;
 
   private render(): void {
+    // stable camera: the view only ever grows to cover new content
+    const content = contentViewBox(this.history.document, this.style);
+    this.viewBox = this.viewBox ? expandViewBox(this.viewBox, content) : content;
     renderDocument(document, this.svg, this.history.document, this.style,
-      [...selectionDecorations(this), ...this.decorations]);
+      [...selectionDecorations(this), ...this.decorations], this.viewBox);
     this.onHistoryChange?.(this.history.canUndo, this.history.canRedo);
     if (this.history.document !== this.lastRenderedDoc) {
       this.lastRenderedDoc = this.history.document;
@@ -146,18 +184,23 @@ export class Editor implements ToolContext {
       if (e.button !== 0) return;
       mount.setPointerCapture(e.pointerId);
       this.lastPointer = this.toPtSpace(e);
+      this.draggingSelected = this.toolKind === 'select' && this.overSelected();
       this.tool.onDown?.(this.lastPointer, this);
+      this.updateCursor();
     });
     mount.addEventListener('pointermove', (e) => {
       const info = this.toPtSpace(e);
       this.lastPointer = info;
       if (e.buttons & 1) this.tool.onMove?.(info, this);
       else this.tool.onHover?.(info, this);
+      this.updateCursor();
     });
     mount.addEventListener('pointerup', (e) => {
       if (!this.lastPointer) return;
       this.tool.onUp?.(this.toPtSpace(e), this);
       this.lastPointer = null;
+      this.draggingSelected = false;
+      this.updateCursor();
     });
   }
 

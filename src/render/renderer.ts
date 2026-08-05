@@ -7,6 +7,7 @@ import type { StyleSheet } from '../core/style/stylesheet';
 import { bondAxis, renderBond, type BondAxis } from './bonds';
 import { hasVisibleLabel, labelBoxes, rayBoxDistance, renderLabel } from './labels';
 import { renderDecorations, type Decoration } from './decorators';
+import type { ViewBox } from './viewport';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -29,21 +30,21 @@ function adjacentDirections(mol: Molecule, bond: Bond, atomId: number): Vec2[] {
   return dirs;
 }
 
-function updateViewBox(svg: SVGSVGElement, doc: MolDocument, style: StyleSheet): void {
+/** Content bounds plus padding — the viewBox a fresh camera would use. */
+export function contentViewBox(doc: MolDocument, style: StyleSheet): ViewBox {
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const a of allAtoms(doc)) {
     minX = Math.min(minX, a.pos.x); maxX = Math.max(maxX, a.pos.x);
     minY = Math.min(minY, a.pos.y); maxY = Math.max(maxY, a.pos.y);
   }
-  if (!isFinite(minX)) {
-    svg.setAttribute('viewBox', '0 0 100 100');
-    return;
-  }
+  if (!isFinite(minX)) return { x: 0, y: 0, width: 100, height: 100 };
   const pad = style.bondLengthPt * 1.5;
-  svg.setAttribute(
-    'viewBox',
-    `${minX - pad} ${minY - pad} ${maxX - minX + 2 * pad} ${maxY - minY + 2 * pad}`,
-  );
+  return {
+    x: minX - pad,
+    y: minY - pad,
+    width: maxX - minX + 2 * pad,
+    height: maxY - minY + 2 * pad,
+  };
 }
 
 /**
@@ -107,6 +108,7 @@ export function renderDocument(
   doc: MolDocument,
   style: StyleSheet,
   decorations: Decoration[] = [],
+  viewBox?: ViewBox,
 ): void {
   while (svg.firstChild) svg.removeChild(svg.firstChild);
 
@@ -136,5 +138,6 @@ export function renderDocument(
   }
 
   renderDecorations(dom, decoratorsG, decorations, style);
-  updateViewBox(svg, doc, style);
+  const vb = viewBox ?? contentViewBox(doc, style);
+  svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.width} ${vb.height}`);
 }

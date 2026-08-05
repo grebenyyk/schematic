@@ -106,5 +106,9 @@ bondToolBtn.addEventListener('click', () => selectTool('bond'));
 chainToolBtn.addEventListener('click', () => selectTool('chain'));
 selectToolBtn.addEventListener('click', () => selectTool('select'));
 
+window.addEventListener('keydown', (e) => {
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'v') selectTool('select');
+});
+
 // debug/e2e hook
 (window as unknown as { editor: Editor }).editor = editor;

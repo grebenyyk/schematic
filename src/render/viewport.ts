@@ -32,3 +32,16 @@ export function clientToPt(client: Vec2, rect: ClientRect, box: ViewBox): Vec2 {
     y: box.y + (client.y - rect.top - offsetY) * s,
   };
 }
+
+/**
+ * Grow-only viewport: returns the union of the current view and the content
+ * bounds. Moving fragments never shifts the camera; the view only expands
+ * when content leaves it, keeping the existing region anchored.
+ */
+export function expandViewBox(current: ViewBox, content: ViewBox): ViewBox {
+  const x1 = Math.min(current.x, content.x);
+  const y1 = Math.min(current.y, content.y);
+  const x2 = Math.max(current.x + current.width, content.x + content.width);
+  const y2 = Math.max(current.y + current.height, content.y + content.height);
+  return { x: x1, y: y1, width: x2 - x1, height: y2 - y1 };
+}
