@@ -192,10 +192,25 @@ function selectionBBox(doc: Document, sel: Selection): { minX: number; minY: num
   return isFinite(minX) ? { minX, minY, maxX, maxY } : null;
 }
 
-/** Where the rotate handle sits: just off the selection's top-right corner. */
+/**
+ * Where the rotate handle sits: on the top-right diagonal from the centroid,
+ * at maxRadius + offset. Rotation-invariant, so it stays put across repeated
+ * rotations of the same selection.
+ */
 export function selectionHandlePos(doc: Document, sel: Selection): Vec2 | null {
   const box = selectionBBox(doc, sel);
-  return box ? { x: box.maxX + HANDLE_OFFSET, y: box.minY - HANDLE_OFFSET } : null;
+  if (!box) return null;
+  const cx = (box.minX + box.maxX) / 2;
+  const cy = (box.minY + box.maxY) / 2;
+  let radius = 0;
+  for (const mol of doc.molecules) {
+    for (const atom of mol.atoms.values()) {
+      if (!sel.atoms.has(atom.id)) continue;
+      radius = Math.max(radius, Math.hypot(atom.pos.x - cx, atom.pos.y - cy));
+    }
+  }
+  const d = (radius + HANDLE_OFFSET) / Math.SQRT2;
+  return { x: cx + d, y: cy - d };
 }
 
 function selectionCentroid(doc: Document, sel: Selection): Vec2 | null {

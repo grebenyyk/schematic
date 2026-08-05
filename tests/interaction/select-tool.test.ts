@@ -5,7 +5,8 @@ import { createDocument, withMolecule, findAtom } from '../../src/core/model/doc
 import type { Document } from '../../src/core/model/document';
 import { emptyMolecule, addAtom, addBond } from '../../src/core/model/molecule';
 import type { Command } from '../../src/core/commands/command';
-import { SelectTool } from '../../src/interaction/tools/select';
+import { SelectTool, selectionHandlePos } from '../../src/interaction/tools/select';
+import { RotateAtoms } from '../../src/core/commands/ops';
 import type { ToolContext, PointerInfo, Selection } from '../../src/interaction/tools';
 import type { Decoration } from '../../src/render/decorators';
 
@@ -168,6 +169,34 @@ describe('SelectTool rotate handle', () => {
     expect(a2.x).toBeCloseTo(10.8, 3);
     expect(a2.y).toBeCloseTo(-6.235, 3);
     expect(state.previewRotate).toBeNull();
+  });
+});
+
+describe('rotate handle placement', () => {
+  test('handle sits on the top-right diagonal at maxRadius + offset from the centroid', () => {
+    const { ctx } = makeCtx(chain3());
+    const sel = { atoms: new Set([1, 2]), bonds: new Set<number>() };
+    const pos = selectionHandlePos(ctx.document, sel)!;
+    const center = { x: 7.2, y: 0 };
+    const d = Math.hypot(pos.x - center.x, pos.y - center.y);
+    expect(d).toBeCloseTo(7.2 + 8, 4); // maxRadius 7.2 + offset 8
+    expect(pos.x).toBeGreaterThan(center.x);
+    expect(pos.y).toBeLessThan(center.y); // upper right
+    expect(Math.abs(pos.x - center.x)).toBeCloseTo(Math.abs(pos.y - center.y), 4); // 45°
+  });
+
+  test('handle position is stable across rotations of the selection', () => {
+    const { ctx, state } = makeCtx(chain3());
+    const tool = new SelectTool();
+    tool.onDown(at(-5, -5), ctx);
+    tool.onMove(at(20, 5), ctx);
+    tool.onUp(at(20, 5), ctx);
+    const before = selectionHandlePos(state.doc, state.selection);
+    // rotate the selection 60° via the command directly
+    ctx.commit(new RotateAtoms([...state.selection.atoms], { x: 7.2, y: 0 }, Math.PI / 3));
+    const after = selectionHandlePos(state.doc, state.selection);
+    expect(after!.x).toBeCloseTo(before!.x, 6);
+    expect(after!.y).toBeCloseTo(before!.y, 6);
   });
 });
 
