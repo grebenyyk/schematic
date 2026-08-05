@@ -84,6 +84,13 @@ body {
   cursor: pointer;
   white-space: nowrap;
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+#select-menu button svg {
+  flex: none;
 }
 
 #select-menu button:hover {

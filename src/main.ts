@@ -114,7 +114,7 @@ chainToolBtn.addEventListener('click', () => selectTool('chain'));
 // bottom-right corner of the select button opens the mode menu
 selectToolBtn.addEventListener('click', (e) => {
   const r = selectToolBtn.getBoundingClientRect();
-  if (e.clientX > r.right - 10 && e.clientY > r.bottom - 10) {
+  if (e.clientX > r.right - 14 && e.clientY > r.bottom - 14) {
     e.stopPropagation(); // don't let the document handler close it immediately
     selectMenu.hidden = !selectMenu.hidden;
     return;
