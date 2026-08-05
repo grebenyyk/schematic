@@ -48,3 +48,19 @@ export function canSetBondOrder(mol: Molecule, bondId: number, order: BondOrder)
     implicitHydrogens(mol, bond.b) >= delta
   );
 }
+
+/**
+ * The charge an atom needs if it becomes `newElement`, keeping its current
+ * bond sum legal (valence = base + charge). Never lowers an existing charge
+ * that already covers it. Example: N→Cl on a triple bond → +2.
+ */
+export function chargeForElement(mol: Molecule, atomId: number, newElement: string): number {
+  const atom = mol.atoms.get(atomId);
+  if (!atom) return 0;
+  let sum = 0;
+  for (const bondId of bondsOf(mol, atomId)) {
+    sum += orderValue(mol.bonds.get(bondId)!.order);
+  }
+  const needed = Math.max(0, Math.ceil(sum - (BASE_VALENCE[newElement] ?? 0)));
+  return Math.max(atom.charge, needed);
+}

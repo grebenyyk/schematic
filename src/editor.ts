@@ -8,7 +8,7 @@ import { History } from './core/commands/history';
 import { SetBondOrder, SetElement, SetCharge, AddAtom, DeleteAtoms, DeleteBonds, MoveAtoms, RotateAtoms } from './core/commands/ops';
 import { CompoundCommand } from './core/commands/command';
 import { ElementTyper } from './interaction/element-typer';
-import { canSetBondOrder } from './core/chem/valence';
+import { canSetBondOrder, chargeForElement } from './core/chem/valence';
 import { selectionDecorations } from './interaction/tools/select';
 import type { Selection } from './interaction/tools';
 import { renderDocument, contentViewBox } from './render/renderer';
@@ -260,7 +260,13 @@ export class Editor implements ToolContext {
     if (!this.lastPointer) return;
     const hit = pick(this.document, this.lastPointer.pos, { atomRadius: 5, bondTolerance: 3 });
     if (hit?.kind === 'atom') {
-      this.commit(new SetElement(hit.id, element));
+      const loc = findAtom(this.document, hit.id)!;
+      // hypervalent replacements carry the charge that keeps them legal
+      const charge = chargeForElement(
+        this.document.molecules[loc.moleculeIndex], hit.id, element);
+      const commands: Command[] = [new SetElement(hit.id, element)];
+      if (charge !== loc.atom.charge) commands.push(new SetCharge(hit.id, charge));
+      this.commit(new CompoundCommand(commands, 'Set element'));
     } else {
       const [id] = this.allocIds(1);
       this.commit(new AddAtom(

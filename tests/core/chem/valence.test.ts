@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { vec } from '../../../src/core/geometry/vec2';
-import { implicitHydrogens, canSetBondOrder } from '../../../src/core/chem/valence';
+import { implicitHydrogens, canSetBondOrder, chargeForElement } from '../../../src/core/chem/valence';
 import { emptyMolecule, addAtom, addBond, type Atom, type BondOrder, type Molecule } from '../../../src/core/model/molecule';
 
 function mol(
@@ -89,5 +89,32 @@ describe('canSetBondOrder', () => {
     const { m } = mol('C', [1]);
     const bondId = [...m.bonds.keys()][0];
     expect(canSetBondOrder(m, bondId, 2)).toBe(true);
+  });
+});
+
+describe('chargeForElement (element replacement keeps valence legal via charge)', () => {
+  test('N → Cl on a triple bond gives Cl²⁺', () => {
+    const { m } = mol('N', [3]);
+    expect(chargeForElement(m, 1, 'Cl')).toBe(2);
+  });
+
+  test('C → N on a double bond needs no charge', () => {
+    const { m } = mol('C', [2]);
+    expect(chargeForElement(m, 1, 'N')).toBe(0);
+  });
+
+  test('C → O on a triple bond gives O⁺', () => {
+    const { m } = mol('C', [3]);
+    expect(chargeForElement(m, 1, 'O')).toBe(1);
+  });
+
+  test('raises an existing insufficient charge', () => {
+    const { m } = mol('N', [1, 1, 1, 1], 1); // N+, 4 bonds
+    expect(chargeForElement(m, 1, 'O')).toBe(2); // O needs +2 for 4 bonds
+  });
+
+  test('never lowers an existing sufficient charge', () => {
+    const { m } = mol('N', [1, 1, 1, 1], 1);
+    expect(chargeForElement(m, 1, 'P')).toBe(1); // P fits with +1, stays
   });
 });
