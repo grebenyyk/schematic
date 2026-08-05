@@ -100,6 +100,7 @@ const selectMenu = document.getElementById('select-menu') as HTMLDivElement;
 let selectMode: 'rect' | 'lasso' = 'rect';
 
 function selectTool(which: 'bond' | 'chain' | 'select') {
+  (document.activeElement as HTMLElement | null)?.blur?.();
   editor.setTool(
     which === 'bond' ? new BondTool()
       : which === 'chain' ? new ChainTool()
