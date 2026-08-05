@@ -126,6 +126,10 @@ selectMenu.querySelectorAll('button').forEach((btn) => {
     selectMode = (btn as HTMLButtonElement).dataset.mode as 'rect' | 'lasso';
     selectMenu.querySelectorAll('button').forEach((b) =>
       b.classList.toggle('active-mode', b === btn));
+    (document.getElementById('select-icon-rect') as unknown as SVGElement).style.display =
+      selectMode === 'rect' ? 'inline' : 'none';
+    (document.getElementById('select-icon-lasso') as unknown as SVGElement).style.display =
+      selectMode === 'lasso' ? 'inline' : 'none';
     selectMenu.hidden = true;
     selectTool('select');
   });
