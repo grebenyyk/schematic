@@ -129,7 +129,7 @@ export function renderDecorations(
         group.appendChild(poly);
       }
     } else if (d.type === 'rotate-handle') {
-      // small circular-arrow affordance at the selection's corner
+      // circular-arrow affordance at the selection's top-right corner
       const r = style.labelSizePt * 0.45;
       const circle = doc.createElementNS(SVG_NS, 'circle');
       circle.setAttribute('cx', String(d.pos.x));
@@ -139,23 +139,23 @@ export function renderDecorations(
       circle.setAttribute('stroke', style.colors.selection);
       circle.setAttribute('stroke-width', String(style.lineWidthPt));
       group.appendChild(circle);
-      const arc = doc.createElementNS(SVG_NS, 'path');
-      const ir = r * 0.55;
-      arc.setAttribute(
+      // Feather rotate-cw, centered in the circle
+      const s = (r * 1.3) / 24;
+      const icon = doc.createElementNS(SVG_NS, 'path');
+      icon.setAttribute(
         'd',
-        `M ${d.pos.x - ir} ${d.pos.y} A ${ir} ${ir} 0 1 1 ${d.pos.x + ir * 0.2} ${d.pos.y - ir * 0.98}`,
+        'M23 4v6h-6 M20.49 15a9 9 0 1 1-2.12-9.36L23 10',
       );
-      arc.setAttribute('fill', 'none');
-      arc.setAttribute('stroke', style.colors.selection);
-      arc.setAttribute('stroke-width', String(style.lineWidthPt));
-      group.appendChild(arc);
-      const head = doc.createElementNS(SVG_NS, 'path');
-      head.setAttribute(
-        'd',
-        `M ${d.pos.x + ir * 0.55} ${d.pos.y - ir * 1.25} L ${d.pos.x + ir * 0.2} ${d.pos.y - ir * 0.98} L ${d.pos.x + ir * 0.62} ${d.pos.y - ir * 0.62} Z`,
+      icon.setAttribute('fill', 'none');
+      icon.setAttribute('stroke', style.colors.selection);
+      icon.setAttribute('stroke-width', String(style.lineWidthPt / s));
+      icon.setAttribute('stroke-linecap', 'round');
+      icon.setAttribute('stroke-linejoin', 'round');
+      icon.setAttribute(
+        'transform',
+        `translate(${d.pos.x}, ${d.pos.y}) scale(${s}) translate(-12, -12)`,
       );
-      head.setAttribute('fill', style.colors.selection);
-      group.appendChild(head);
+      group.appendChild(icon);
     } else if (d.type === 'marquee') {
       const rect = doc.createElementNS(SVG_NS, 'rect');
       rect.setAttribute('x', String(Math.min(d.from.x, d.to.x)));

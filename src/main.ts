@@ -6,7 +6,6 @@ import { BondTool } from './interaction/tools/bond';
 import { ChainTool } from './interaction/tools/chain';
 import { SelectTool } from './interaction/tools/select';
 import { hillFormula, molecularWeight, formulaText } from './core/chem/formula';
-import { rectifyCommand } from './core/commands/rectify';
 
 /** Benzene ring (kekulé), centered at (cx, cy). */
 function benzene(doc: Document, cx: number, cy: number): Document {
@@ -116,6 +115,7 @@ chainToolBtn.addEventListener('click', () => selectTool('chain'));
 selectToolBtn.addEventListener('click', (e) => {
   const r = selectToolBtn.getBoundingClientRect();
   if (e.clientX > r.right - 10 && e.clientY > r.bottom - 10) {
+    e.stopPropagation(); // don't let the document handler close it immediately
     selectMenu.hidden = !selectMenu.hidden;
     return;
   }
@@ -131,16 +131,6 @@ selectMenu.querySelectorAll('button').forEach((btn) => {
   });
 });
 document.addEventListener('click', () => { selectMenu.hidden = true; });
-
-const rectifyBtn = document.getElementById('rectify') as HTMLButtonElement;
-rectifyBtn.addEventListener('click', () => {
-  const sel = editor.getSelection();
-  const ids = sel.atoms.size > 0
-    ? [...sel.atoms]
-    : editor.document.molecules.flatMap((m) => [...m.atoms.keys()]);
-  const cmd = rectifyCommand(editor.document, ids, editor.style.bondLengthPt);
-  if (cmd) editor.commit(cmd);
-});
 
 window.addEventListener('keydown', (e) => {
   if (!e.ctrlKey && !e.metaKey && !e.altKey && e.key === 'v') selectTool('select');
