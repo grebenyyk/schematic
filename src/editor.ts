@@ -215,11 +215,22 @@ export class Editor implements ToolContext {
     };
   }
 
+  private focusedAt = -Infinity;
+  private swallowNextDown = false;
+
   private attachPointer(mount: HTMLElement): void {
+    // a click that activates an unfocused window must not draw: the browser
+    // delivers it immediately after the window's focus event
+    window.addEventListener('focus', () => {
+      this.focusedAt = Date.now();
+      this.swallowNextDown = true;
+    });
     mount.addEventListener('pointerdown', (e) => {
       if (e.button !== 0) return;
-      // a click that activates an unfocused window must not draw
-      if (!document.hasFocus()) return;
+      if (this.swallowNextDown) {
+        this.swallowNextDown = false;
+        if (Date.now() - this.focusedAt < 350) return;
+      }
       mount.setPointerCapture(e.pointerId);
       this.lastPointer = this.toPtSpace(e);
       this.draggingSelected = this.toolKind === 'select' && this.overSelected();
