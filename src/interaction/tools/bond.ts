@@ -3,9 +3,7 @@ import { pick } from '../../core/geometry/hit';
 import { mergeTarget, snapBondPoint } from '../../core/geometry/snapping';
 import { defaultBondDirection } from '../../core/geometry/chain';
 import { findAtom, findBond } from '../../core/model/document';
-import { bondRenderAxis } from '../../render/renderer';
-import { ringPath } from '../../core/model/rings';
-import { ringInwardNormal } from '../../render/bonds';
+import { bondDotCenter } from '../../render/renderer';
 import { implicitHydrogens, canSetBondOrder } from '../../core/chem/valence';
 import type { BondOrder } from '../../core/model/molecule';
 import type { Command } from '../../core/commands/command';
@@ -109,19 +107,7 @@ export class BondTool implements Tool {
     } else {
       const loc = findBond(doc, hit.id)!;
       const mol = doc.molecules[loc.moleculeIndex];
-      const axis = bondRenderAxis(mol, loc.bond, ctx.style);
-      let center = { x: (axis.a.x + axis.b.x) / 2, y: (axis.a.y + axis.b.y) / 2 };
-      // ring double bonds draw on-axis + inner line: the visual center is
-      // half a gap inside the ring
-      if (loc.bond.order === 2) {
-        const path = ringPath(mol, loc.bond.id);
-        if (path) {
-          const inward = ringInwardNormal(axis, path);
-          const halfGap = (ctx.style.doubleBondSpacing * ctx.style.bondLengthPt) / 2;
-          center = add(center, scale(inward, halfGap));
-        }
-      }
-      ctx.setDecorations([{ type: 'hover-bond', center }]);
+      ctx.setDecorations([{ type: 'hover-bond', center: bondDotCenter(mol, loc.bond, ctx.style) }]);
     }
   }
 

@@ -2,9 +2,10 @@ import type { Document as MolDocument } from '../core/model/document';
 import { allAtoms } from '../core/model/document';
 import { bondsOf, type Bond, type Molecule } from '../core/model/molecule';
 import { ringPath } from '../core/model/rings';
-import { norm, sub, type Vec2 } from '../core/geometry/vec2';
+import { add, norm, scale, sub, type Vec2 } from '../core/geometry/vec2';
 import type { StyleSheet } from '../core/style/stylesheet';
-import { bondAxis, renderBond, type BondAxis } from './bonds';
+import { bondAxis, renderBond, ringInwardNormal, type BondAxis } from './bonds';
+import { renderArrow, renderPlus } from './arrow';
 import { hasVisibleLabel, labelBoxes, rayBoxDistance, renderLabel } from './labels';
 import { renderDecorations, type Decoration } from './decorators';
 import type { ViewBox } from './viewport';
@@ -36,6 +37,16 @@ export function contentViewBox(doc: MolDocument, style: StyleSheet): ViewBox {
   for (const a of allAtoms(doc)) {
     minX = Math.min(minX, a.pos.x); maxX = Math.max(maxX, a.pos.x);
     minY = Math.min(minY, a.pos.y); maxY = Math.max(maxY, a.pos.y);
+  }
+  for (const arrow of doc.arrows) {
+    for (const p of [arrow.from, arrow.to]) {
+      minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+      minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+    }
+  }
+  for (const plus of doc.pluses) {
+    minX = Math.min(minX, plus.pos.x); maxX = Math.max(maxX, plus.pos.x);
+    minY = Math.min(minY, plus.pos.y); maxY = Math.max(maxY, plus.pos.y);
   }
   if (!isFinite(minX)) return { x: 0, y: 0, width: 100, height: 100 };
   const pad = style.bondLengthPt * 1.5;
@@ -98,6 +109,25 @@ export function bondRenderAxis(mol: Molecule, bond: Bond, style: StyleSheet): Bo
 }
 
 /**
+ * Where a bond's highlight dot sits: the midpoint of the drawn (trimmed) axis,
+ * nudged half a double-bond gap inside the ring for ring double bonds so the
+ * dot lands between the two lines. Shared by bond hover and selection.
+ */
+export function bondDotCenter(mol: Molecule, bond: Bond, style: StyleSheet): Vec2 {
+  const axis = bondRenderAxis(mol, bond, style);
+  let center: Vec2 = { x: (axis.a.x + axis.b.x) / 2, y: (axis.a.y + axis.b.y) / 2 };
+  if (bond.order === 2) {
+    const path = ringPath(mol, bond.id);
+    if (path) {
+      const inward = ringInwardNormal(axis, path);
+      const halfGap = (style.doubleBondSpacing * style.bondLengthPt) / 2;
+      center = add(center, scale(inward, halfGap));
+    }
+  }
+  return center;
+}
+
+/**
  * Full redraw of a document into an SVG element: layered groups
  * bonds → labels → decorators. Incremental patching comes later,
  * once commands report affected ids.
@@ -114,6 +144,7 @@ export function renderDocument(
 
   const bondsG = layer(dom, svg, 'bonds');
   const labelsG = layer(dom, svg, 'labels');
+  const reactionsG = layer(dom, svg, 'reactions');
   const decoratorsG = layer(dom, svg, 'decorators');
 
   for (const mol of doc.molecules) {
@@ -136,6 +167,9 @@ export function renderDocument(
       if (labeled.get(atom.id)) renderLabel(dom, labelsG, mol, atom, style);
     }
   }
+
+  for (const arrow of doc.arrows) renderArrow(dom, reactionsG, arrow, style);
+  for (const plus of doc.pluses) renderPlus(dom, reactionsG, plus, style);
 
   renderDecorations(dom, decoratorsG, decorations, style);
   const vb = viewBox ?? contentViewBox(doc, style);

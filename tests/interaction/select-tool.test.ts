@@ -6,7 +6,7 @@ import type { Document } from '../../src/core/model/document';
 import { emptyMolecule, addAtom, addBond } from '../../src/core/model/molecule';
 import type { Command } from '../../src/core/commands/command';
 import { SelectTool, selectionHandlePos } from '../../src/interaction/tools/select';
-import { RotateAtoms } from '../../src/core/commands/ops';
+import { AddArrow, RotateAtoms } from '../../src/core/commands/ops';
 import type { ToolContext, PointerInfo, Selection } from '../../src/interaction/tools';
 import type { Decoration } from '../../src/render/decorators';
 
@@ -130,6 +130,27 @@ describe('SelectTool lasso', () => {
     tool.onDown(at(-5, -5), ctx);
     tool.onMove(at(25, -5), ctx);
     expect(state.decorations.at(-1)?.some((d) => d.type === 'lasso')).toBe(true);
+  });
+
+  test('lasso that closes back near its start still selects (not a click)', () => {
+    const { ctx, state } = makeCtx(chain3());
+    const tool = new SelectTool('lasso');
+    // triangle around atoms 1 and 2, but release within the click threshold of start
+    tool.onDown(at(-5, -5), ctx);
+    tool.onMove(at(25, -5), ctx);
+    tool.onMove(at(10, 10), ctx);
+    tool.onMove(at(-4.6, -4.6), ctx); // back near the start (< 2 pt away)
+    tool.onUp(at(-4.6, -4.6), ctx);
+    expect([...state.selection.atoms].sort()).toEqual([1, 2]);
+    expect([...state.selection.bonds]).toEqual([10]);
+  });
+
+  test('lasso with no real drag (a click) selects nothing', () => {
+    const { ctx, state } = makeCtx(chain3());
+    const tool = new SelectTool('lasso');
+    tool.onDown(at(-5, -5), ctx);
+    tool.onUp(at(-4.8, -4.8), ctx); // < 2 pt, no polygon drawn
+    expect([...state.selection.atoms]).toEqual([]);
   });
 
   test('rect mode is the default', () => {
@@ -260,5 +281,49 @@ describe('SelectTool move', () => {
     tool.onUp(at(10.3, 20.3), ctx);
     expect([...state.selection.atoms]).toEqual([1]);
     expect(findAtom(state.doc, 1)?.atom.pos).toEqual({ x: 10, y: 20 });
+  });
+});
+
+describe('SelectTool additive toggle (Shift / Cmd)', () => {
+  const meta = (x: number, y: number): PointerInfo => ({ pos: vec(x, y), alt: false, shift: false, meta: true });
+
+  test('Cmd-click a selected atom deselects it, then re-selects it', () => {
+    const { ctx, state } = makeCtx(chain3());
+    const tool = new SelectTool();
+    tool.onDown(at(0, 0), ctx);   // click atom 1 → selects it
+    tool.onUp(at(0, 0), ctx);
+    expect(state.selection.atoms.has(1)).toBe(true);
+
+    tool.onDown(meta(0, 0), ctx); // Cmd-click atom 1 → toggles off
+    tool.onUp(meta(0, 0), ctx);
+    expect(state.selection.atoms.has(1)).toBe(false);
+
+    tool.onDown(meta(0, 0), ctx); // Cmd-click again → toggles on
+    tool.onUp(meta(0, 0), ctx);
+    expect(state.selection.atoms.has(1)).toBe(true);
+  });
+});
+
+describe('SelectTool superfine move (arrows/pluses vs atoms)', () => {
+  test('an arrow moves on a sub-threshold drag (superfine); an atom does not', () => {
+    let doc = chain3();
+    doc = new AddArrow({ id: 50, from: { x: 0, y: 20 }, to: { x: 20, y: 20 } }).do(doc);
+    const { ctx, state } = makeCtx(doc);
+    const tool = new SelectTool();
+
+    // select the arrow, then nudge it 1 pt (under CLICK_THRESHOLD = 2)
+    tool.onDown(at(10, 20), ctx);
+    tool.onUp(at(10, 20), ctx);
+    expect(state.selection.arrows?.has(50)).toBe(true);
+    tool.onDown(at(10, 20), ctx);
+    tool.onMove(at(11, 20), ctx);
+    tool.onUp(at(11, 20), ctx);
+    expect(state.doc.arrows[0].from.x).toBeCloseTo(1, 5); // committed the 1-pt move
+
+    // an atom nudged 1 pt does NOT move (keeps the click threshold)
+    tool.onDown(at(0.3, 0.3), ctx);
+    tool.onMove(at(1.1, 0.3), ctx);
+    tool.onUp(at(1.1, 0.3), ctx);
+    expect(findAtom(state.doc, 1)?.atom.pos).toEqual({ x: 0, y: 0 });
   });
 });

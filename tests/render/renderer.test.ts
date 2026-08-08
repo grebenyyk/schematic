@@ -36,7 +36,7 @@ describe('renderDocument', () => {
   test('emits layered groups in order: bonds, labels, decorators', () => {
     renderDocument(document, svg, demoDoc(), ACS1996);
     const classes = [...svg.children].map((c) => c.getAttribute('class'));
-    expect(classes).toEqual(['bonds', 'labels', 'decorators']);
+    expect(classes).toEqual(['bonds', 'labels', 'reactions', 'decorators']);
   });
 
   test('triple bond renders three lines in the bonds layer', () => {
@@ -98,6 +98,7 @@ describe('renderDecorations', () => {
     const c = g.querySelector('circle')!;
     expect(c.getAttribute('fill')).toBe('none');
     expect(c.getAttribute('stroke')).toBe(ACS1996.colors.hover);
+    expect(c.getAttribute('opacity')).toBeNull(); // hover is full strength
   });
 
   test('labeled (hetero) atom hover outlines the whole label', () => {
@@ -122,25 +123,44 @@ describe('renderDecorations', () => {
     const c = g.querySelector('circle')!;
     expect(c.getAttribute('cx')).toBe('7.2');
     expect(c.getAttribute('fill')).toBe(ACS1996.colors.hover);
+    expect(c.getAttribute('opacity')).toBeNull(); // hover is full strength
     expect(g.querySelector('line')).toBeNull();
   });
 
-  test('selection: atom circle and bond line in selection color, marquee rect', () => {
+  test('selection: atom outline + bond dot in selection color, marquee rect', () => {
     const g = makeG();
     renderDecorations(document, g, [
-      { type: 'select-atom', pos: vec(0, 0) },
-      { type: 'select-bond', center: vec(7.2, 0), dir: vec(1, 0), length: 14.4 },
+      { type: 'select-atom', pos: vec(0, 0), labeled: false },
+      { type: 'select-bond', center: vec(7.2, 0) },
       { type: 'marquee', from: vec(-5, -5), to: vec(20, 10) },
     ], ACS1996);
-    const circle = g.querySelector('circle')!;
-    expect(circle.getAttribute('stroke')).toBe(ACS1996.colors.selection);
-    expect(circle.getAttribute('fill')).toBe(ACS1996.colors.selection);
-    const bondLine = g.querySelector('line')!;
-    expect(bondLine.getAttribute('stroke')).toBe(ACS1996.colors.selection);
+    const circles = [...g.querySelectorAll('circle')];
+    // first circle: the carbon-vertex outline (unfilled, mirroring hover)
+    expect(circles[0].getAttribute('fill')).toBe('none');
+    expect(circles[0].getAttribute('stroke')).toBe(ACS1996.colors.selection);
+    expect(circles[0].getAttribute('opacity')).toBe('0.35'); // selection is dimmed
+    // second circle: the bond dot (filled)
+    expect(circles[1].getAttribute('fill')).toBe(ACS1996.colors.selection);
+    expect(circles[1].getAttribute('opacity')).toBe('0.35');
+    // a selected bond is a dot now, never a line
+    expect(g.querySelector('line')).toBeNull();
     const rect = g.querySelector('rect')!;
     expect(rect.getAttribute('stroke-dasharray')).toBeTruthy();
     expect(rect.getAttribute('width')).toBe('25');
     expect(rect.getAttribute('height')).toBe('15');
+  });
+
+  test('selection: labeled (hetero) atom outlines the whole label in selection color', () => {
+    const g = makeG();
+    renderDecorations(document, g, [
+      { type: 'select-atom', pos: vec(5, 5), labeled: true, element: 'N', h: 2, flipped: false, charge: '+' },
+    ], ACS1996);
+    const t = g.querySelector('text')!;
+    expect(t.textContent).toBe('NH2+');
+    expect(t.getAttribute('fill')).toBe('none');
+    expect(t.getAttribute('stroke')).toBe(ACS1996.colors.selection);
+    expect(t.getAttribute('opacity')).toBe('0.35'); // selection is dimmed
+    expect(g.querySelector('circle')).toBeNull();
   });
 
   test('snap guide draws a dashed line', () => {

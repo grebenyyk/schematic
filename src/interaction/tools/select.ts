@@ -1,9 +1,12 @@
 import { dist, sub, type Vec2 } from '../../core/geometry/vec2';
 import { pick } from '../../core/geometry/hit';
 import { pointInPolygon } from '../../core/geometry/polygon';
-import { MoveAtoms, RotateAtoms } from '../../core/commands/ops';
+import { MoveAtoms, MoveArrows, MovePluses, RotateAtoms } from '../../core/commands/ops';
+import { CompoundCommand, type Command } from '../../core/commands/command';
 import type { Document } from '../../core/model/document';
-import type { Decoration } from '../../render/decorators';
+import type { StyleSheet } from '../../core/style/stylesheet';
+import { bondDotCenter } from '../../render/renderer';
+import { atomSelectionDecoration, type Decoration } from '../../render/decorators';
 import type { PointerInfo, Selection, Tool, ToolContext } from '../tools';
 
 const ATOM_RADIUS = 5;
@@ -31,7 +34,7 @@ export class SelectTool implements Tool {
 
   onDown(e: PointerInfo, ctx: ToolContext): void {
     this.start = e.pos;
-    this.additive = e.shift;
+    this.additive = e.shift || !!e.meta;
 
     // rotate handle grabs first
     const handle = selectionHandlePos(ctx.document, ctx.getSelection());
@@ -48,7 +51,7 @@ export class SelectTool implements Tool {
     const hit = pick(ctx.document, e.pos, { atomRadius: ATOM_RADIUS, bondTolerance: BOND_TOLERANCE });
 
     if (!hit) {
-      if (!e.shift) ctx.setSelection({ atoms: new Set(), bonds: new Set() });
+      if (!this.additive) ctx.setSelection({ atoms: new Set(), bonds: new Set() });
       this.mode = 'marquee';
       this.lassoPoints = [e.pos];
       return;
@@ -57,9 +60,11 @@ export class SelectTool implements Tool {
     const sel = clone(ctx.getSelection());
     const inSelection =
       (hit.kind === 'atom' && sel.atoms.has(hit.id)) ||
-      (hit.kind === 'bond' && sel.bonds.has(hit.id));
+      (hit.kind === 'bond' && sel.bonds.has(hit.id)) ||
+      (hit.kind === 'arrow' && sel.arrows?.has(hit.id)) ||
+      (hit.kind === 'plus' && sel.pluses?.has(hit.id));
 
-    if (e.shift) {
+    if (this.additive) {
       toggle(sel, hit);
       ctx.setSelection(sel);
       this.mode = 'idle';
@@ -83,7 +88,9 @@ export class SelectTool implements Tool {
       } else {
         ctx.setDecorations([{ type: 'marquee', from: this.start, to: e.pos }]);
       }
-    } else if (this.mode === 'move' && dist(this.start, e.pos) > CLICK_THRESHOLD) {
+    } else if (this.mode === 'move') {
+      // preview tracks from the start; the actual move only commits on pointerup
+      // if it exceeded the click threshold (onUp), so a click never moves anything
       ctx.setPreviewMove(sub(e.pos, this.start));
     } else if (this.mode === 'rotate' && this.rotateCenter) {
       const c = this.rotateCenter;
@@ -97,15 +104,30 @@ export class SelectTool implements Tool {
     if (!this.start) return;
     const delta = sub(e.pos, this.start);
     if (this.mode === 'marquee') {
-      if (dist(this.start, e.pos) > CLICK_THRESHOLD) {
+      // A lasso commits whenever a real polygon was drawn: closing the loop
+      // back near the start is the normal gesture, not a click. A rectangle
+      // still needs an actual drag (start ≈ end is a click that selects nothing).
+      const drawn = this.selectMode === 'lasso'
+        ? this.lassoPoints.length >= 3
+        : dist(this.start, e.pos) > CLICK_THRESHOLD;
+      if (drawn) {
         const sel = this.additive ? clone(ctx.getSelection()) : { atoms: new Set<number>(), bonds: new Set<number>() };
         if (this.selectMode === 'lasso') selectInPolygon(ctx, sel, this.lassoPoints);
         else selectInRect(ctx, sel, this.start, e.pos);
         ctx.setSelection(sel);
       }
-    } else if (this.mode === 'move' && dist(this.start, e.pos) > CLICK_THRESHOLD) {
-      const ids = [...ctx.getSelection().atoms];
-      if (ids.length > 0) ctx.commit(new MoveAtoms(ids, delta));
+    } else if (this.mode === 'move') {
+      const s = ctx.getSelection();
+      // arrows/pluses need superfine positioning to align with molecules, so a
+      // drag of any size commits; atom-only selections keep the click threshold
+      const fine = (s.arrows?.size ?? 0) > 0 || (s.pluses?.size ?? 0) > 0;
+      if (dist(this.start, e.pos) > (fine ? 0 : CLICK_THRESHOLD)) {
+        const commands: Command[] = [];
+        if (s.atoms.size) commands.push(new MoveAtoms([...s.atoms], delta));
+        if (s.arrows?.size) commands.push(new MoveArrows([...s.arrows], delta));
+        if (s.pluses?.size) commands.push(new MovePluses([...s.pluses], delta));
+        if (commands.length > 0) ctx.commit(new CompoundCommand(commands, 'Move'));
+      }
     } else if (this.mode === 'rotate' && this.rotateCenter) {
       const c = this.rotateCenter;
       const a = Math.atan2(e.pos.y - c.y, e.pos.x - c.x) - this.rotateStartAngle;
@@ -130,16 +152,31 @@ export class SelectTool implements Tool {
 }
 
 function clone(sel: Selection): Selection {
-  return { atoms: new Set(sel.atoms), bonds: new Set(sel.bonds) };
+  const out: Selection = { atoms: new Set(sel.atoms), bonds: new Set(sel.bonds) };
+  if (sel.arrows) out.arrows = new Set(sel.arrows);
+  if (sel.pluses) out.pluses = new Set(sel.pluses);
+  return out;
 }
 
-function addTo(sel: Selection, hit: { kind: 'atom' | 'bond'; id: number }): void {
+type Hit = { kind: 'atom' | 'bond' | 'arrow' | 'plus'; id: number };
+
+/** Get (creating if needed) the set for an optional selection kind. */
+function setFor(sel: Selection, kind: 'arrows' | 'pluses'): Set<number> {
+  return sel[kind] ?? (sel[kind] = new Set<number>());
+}
+
+function addTo(sel: Selection, hit: Hit): void {
   if (hit.kind === 'atom') sel.atoms.add(hit.id);
-  else sel.bonds.add(hit.id);
+  else if (hit.kind === 'bond') sel.bonds.add(hit.id);
+  else if (hit.kind === 'arrow') setFor(sel, 'arrows').add(hit.id);
+  else setFor(sel, 'pluses').add(hit.id);
 }
 
-function toggle(sel: Selection, hit: { kind: 'atom' | 'bond'; id: number }): void {
-  const set = hit.kind === 'atom' ? sel.atoms : sel.bonds;
+function toggle(sel: Selection, hit: Hit): void {
+  const set =
+    hit.kind === 'atom' ? sel.atoms :
+    hit.kind === 'bond' ? sel.bonds :
+    hit.kind === 'arrow' ? setFor(sel, 'arrows') : setFor(sel, 'pluses');
   if (set.has(hit.id)) set.delete(hit.id);
   else set.add(hit.id);
 }
@@ -162,6 +199,12 @@ function selectInRect(ctx: ToolContext, sel: Selection, a: Vec2, b: Vec2): void 
       if (inRect(pa, a, b) && inRect(pb, a, b)) sel.bonds.add(bond.id);
     }
   }
+  for (const arrow of ctx.document.arrows) {
+    if (inRect(arrow.from, a, b) && inRect(arrow.to, a, b)) setFor(sel, 'arrows').add(arrow.id);
+  }
+  for (const plus of ctx.document.pluses) {
+    if (inRect(plus.pos, a, b)) setFor(sel, 'pluses').add(plus.id);
+  }
 }
 
 function selectInPolygon(ctx: ToolContext, sel: Selection, points: Vec2[]): void {
@@ -174,6 +217,12 @@ function selectInPolygon(ctx: ToolContext, sel: Selection, points: Vec2[]): void
       const pb = mol.atoms.get(bond.b)!.pos;
       if (pointInPolygon(pa, points) && pointInPolygon(pb, points)) sel.bonds.add(bond.id);
     }
+  }
+  for (const arrow of ctx.document.arrows) {
+    if (pointInPolygon(arrow.from, points) && pointInPolygon(arrow.to, points)) setFor(sel, 'arrows').add(arrow.id);
+  }
+  for (const plus of ctx.document.pluses) {
+    if (pointInPolygon(plus.pos, points)) setFor(sel, 'pluses').add(plus.id);
   }
 }
 
@@ -219,29 +268,32 @@ export function selectionHandlePos(doc: Document, sel: Selection): Vec2 | null {
   return { x: c.x + d, y: c.y - d };
 }
 
-/** Selection outlines for a document — used by the editor every render. */
-export function selectionDecorations(doc: Document, sel: Selection): Decoration[] {
+/** Selection highlights for a document — mirror the bond-tool hover style, in green. */
+export function selectionDecorations(doc: Document, sel: Selection, style: StyleSheet): Decoration[] {
   const decorations: Decoration[] = [];
   for (const mol of doc.molecules) {
     for (const atom of mol.atoms.values()) {
       if (sel.atoms.has(atom.id)) {
-        decorations.push({ type: 'select-atom', pos: atom.pos });
+        decorations.push(atomSelectionDecoration(doc, atom.id, style));
       }
     }
     for (const bond of mol.bonds.values()) {
       if (!sel.bonds.has(bond.id) && !(sel.atoms.has(bond.a) && sel.atoms.has(bond.b))) continue;
-      const a = mol.atoms.get(bond.a);
-      const b = mol.atoms.get(bond.b);
-      if (!a || !b) continue; // stale ids after undo/delete
-      const d = sub(b.pos, a.pos);
-      const length = Math.hypot(d.x, d.y);
-      decorations.push({
-        type: 'select-bond',
-        center: { x: (a.pos.x + b.pos.x) / 2, y: (a.pos.y + b.pos.y) / 2 },
-        dir: { x: d.x / length, y: d.y / length },
-        length,
-      });
+      if (!mol.atoms.has(bond.a) || !mol.atoms.has(bond.b)) continue; // stale ids after undo/delete
+      decorations.push({ type: 'select-bond', center: bondDotCenter(mol, bond, style) });
     }
+  }
+  for (const arrow of doc.arrows) {
+    if (!sel.arrows?.has(arrow.id)) continue;
+    decorations.push({
+      type: 'select-atom',
+      labeled: false,
+      pos: { x: (arrow.from.x + arrow.to.x) / 2, y: (arrow.from.y + arrow.to.y) / 2 },
+    });
+  }
+  for (const plus of doc.pluses) {
+    if (!sel.pluses?.has(plus.id)) continue;
+    decorations.push({ type: 'select-atom', labeled: false, pos: plus.pos });
   }
   const handle = selectionHandlePos(doc, sel);
   if (handle) decorations.push({ type: 'rotate-handle', pos: handle });

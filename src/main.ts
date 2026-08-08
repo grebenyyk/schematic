@@ -1,73 +1,14 @@
-import { vec } from './core/geometry/vec2';
-import { createDocument, withMolecule, allocId, type Document } from './core/model/document';
-import { emptyMolecule, addAtom, addBond, type Molecule, type BondOrder, type BondStereo } from './core/model/molecule';
+import { createDocument } from './core/model/document';
 import { Editor } from './editor';
 import { BondTool } from './interaction/tools/bond';
 import { ChainTool } from './interaction/tools/chain';
 import { SelectTool } from './interaction/tools/select';
+import { ViewportTool } from './interaction/tools/viewport';
+import { RingTool } from './interaction/tools/ring';
+import { ArrowTool } from './interaction/tools/arrow';
+import { PlusTool } from './interaction/tools/plus';
 import { hillFormula, molecularWeight, formulaText } from './core/chem/formula';
-
-/** Benzene ring (kekulé), centered at (cx, cy). */
-function benzene(doc: Document, cx: number, cy: number): Document {
-  let m: Molecule = emptyMolecule();
-  const ids: number[] = [];
-  const r = 14.4; // hexagon side == circumradius
-  for (let i = 0; i < 6; i++) {
-    const a = (Math.PI / 180) * (90 + i * 60);
-    const res = allocId(doc);
-    doc = res.doc;
-    ids.push(res.id);
-    m = addAtom(m, {
-      id: res.id, element: 'C',
-      pos: vec(cx + r * Math.cos(a), cy + r * Math.sin(a)),
-      charge: 0, hydrogens: null,
-    });
-  }
-  for (let i = 0; i < 6; i++) {
-    const res = allocId(doc);
-    doc = res.doc;
-    m = addBond(m, {
-      id: res.id, a: ids[i], b: ids[(i + 1) % 6],
-      order: (i % 2 === 0 ? 2 : 1) as BondOrder, stereo: 'none' as BondStereo,
-    });
-  }
-  return withMolecule(doc, m);
-}
-
-/** A small showcase: O hetero-labels, a double bond, a triple bond, a wedge. */
-function showcase(doc: Document, ox: number, oy: number): Document {
-  let m: Molecule = emptyMolecule();
-  const put = (element: string, x: number, y: number, charge = 0) => {
-    const res = allocId(doc);
-    doc = res.doc;
-    m = addAtom(m, { id: res.id, element, pos: vec(ox + x, oy + y), charge, hydrogens: null });
-    return res.id;
-  };
-  const bond = (a: number, b: number, order: BondOrder, stereo: BondStereo = 'none') => {
-    const res = allocId(doc);
-    doc = res.doc;
-    m = addBond(m, { id: res.id, a, b, order, stereo });
-  };
-  // CH3–COOH fragment, trigonal 120° at the carbonyl carbon
-  const c1 = put('C', 0, 0);
-  const c2 = put('C', 14.4, 0);
-  const o1 = put('O', 14.4 + 14.4 * Math.cos(-Math.PI / 3), 14.4 * Math.sin(-Math.PI / 3));
-  const o2 = put('O', 14.4 + 14.4 * Math.cos(Math.PI / 3), 14.4 * Math.sin(Math.PI / 3));
-  bond(c1, c2, 1);
-  bond(c2, o1, 2);
-  bond(c2, o2, 1);
-  // acetonitrile: CH3–C≡N
-  const c3 = put('C', 0, 34);
-  const c4 = put('C', 14.4, 34);
-  const n1 = put('N', 28.8, 34);
-  bond(c3, c4, 1);
-  bond(c4, n1, 3);
-  return withMolecule(doc, m);
-}
-
-let doc = createDocument();
-doc = benzene(doc, -40, 0);
-doc = showcase(doc, 20, -10);
+import { documentSvg, svgToPngBlob, downloadBlob } from './render/export';
 
 const mount = document.getElementById('canvas-host')!;
 const undoBtn = document.getElementById('undo') as HTMLButtonElement;
@@ -75,7 +16,7 @@ const redoBtn = document.getElementById('redo') as HTMLButtonElement;
 const statusline = document.getElementById('statusline')!;
 
 const editor = new Editor(mount, {
-  document: doc,
+  document: createDocument(),
   onHistoryChange: (canUndo, canRedo) => {
     undoBtn.disabled = !canUndo;
     redoBtn.disabled = !canRedo;
@@ -83,7 +24,7 @@ const editor = new Editor(mount, {
   onDocumentChange: (doc, selection) => {
     const counts = hillFormula(doc, selection.atoms.size > 0 ? selection.atoms : undefined);
     statusline.textContent = counts.size === 0
-      ? 'draw: drag to bond · click a bond to cycle order · type an element over an atom'
+      ? 'drag to draw a bond · click a bond to cycle its order · paste SMILES with ⌘V'
       : `${formulaText(counts)} · ${molecularWeight(counts).toFixed(2)} g/mol`;
   },
   onToolShortcut: (key) => selectTool(key === 'v' ? 'select' : 'bond'),
@@ -95,22 +36,38 @@ redoBtn.addEventListener('click', () => editor.redo());
 const bondToolBtn = document.getElementById('tool-bond') as HTMLButtonElement;
 const chainToolBtn = document.getElementById('tool-chain') as HTMLButtonElement;
 const selectToolBtn = document.getElementById('tool-select') as HTMLButtonElement;
+const viewportToolBtn = document.getElementById('tool-viewport') as HTMLButtonElement;
+const ringToolBtn = document.getElementById('tool-ring') as HTMLButtonElement;
+const arrowToolBtn = document.getElementById('tool-arrow') as HTMLButtonElement;
+const plusToolBtn = document.getElementById('tool-plus') as HTMLButtonElement;
 const selectMenu = document.getElementById('select-menu') as HTMLDivElement;
 
 let selectMode: 'rect' | 'lasso' = 'rect';
 
-function selectTool(which: 'bond' | 'chain' | 'select') {
+function selectTool(which: 'bond' | 'chain' | 'select' | 'viewport' | 'ring' | 'arrow' | 'plus') {
   (document.activeElement as HTMLElement | null)?.blur?.();
   editor.setTool(
     which === 'bond' ? new BondTool()
       : which === 'chain' ? new ChainTool()
-        : new SelectTool(selectMode));
+        : which === 'viewport' ? new ViewportTool()
+          : which === 'ring' ? new RingTool()
+            : which === 'arrow' ? new ArrowTool()
+              : which === 'plus' ? new PlusTool()
+                : new SelectTool(selectMode));
   bondToolBtn.classList.toggle('active', which === 'bond');
   chainToolBtn.classList.toggle('active', which === 'chain');
   selectToolBtn.classList.toggle('active', which === 'select');
+  viewportToolBtn.classList.toggle('active', which === 'viewport');
+  ringToolBtn.classList.toggle('active', which === 'ring');
+  arrowToolBtn.classList.toggle('active', which === 'arrow');
+  plusToolBtn.classList.toggle('active', which === 'plus');
 }
 bondToolBtn.addEventListener('click', () => selectTool('bond'));
 chainToolBtn.addEventListener('click', () => selectTool('chain'));
+viewportToolBtn.addEventListener('click', () => selectTool('viewport'));
+ringToolBtn.addEventListener('click', () => selectTool('ring'));
+arrowToolBtn.addEventListener('click', () => selectTool('arrow'));
+plusToolBtn.addEventListener('click', () => selectTool('plus'));
 
 // bottom-right corner of the select button opens the mode menu
 selectToolBtn.addEventListener('click', (e) => {
@@ -136,6 +93,42 @@ selectMenu.querySelectorAll('button').forEach((btn) => {
   });
 });
 document.addEventListener('click', () => { selectMenu.hidden = true; });
+
+const exportBtn = document.getElementById('export') as HTMLButtonElement;
+const exportMenu = document.getElementById('export-menu') as HTMLDivElement;
+
+async function runExport(which: string): Promise<void> {
+  const svg = documentSvg(document, editor.document, editor.style);
+  if (which === 'copy-png') {
+    try {
+      const blob = await svgToPngBlob(svg);
+      await navigator.clipboard?.write([new ClipboardItem({ 'image/png': blob })]);
+    } catch (err) {
+      console.error('Copy PNG failed', err);
+    }
+  } else if (which === 'download-svg') {
+    downloadBlob('molecule.svg', new Blob([svg], { type: 'image/svg+xml' }));
+  } else if (which === 'download-png') {
+    try {
+      downloadBlob('molecule.png', await svgToPngBlob(svg));
+    } catch (err) {
+      console.error('PNG export failed', err);
+    }
+  }
+}
+
+exportBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  exportMenu.hidden = !exportMenu.hidden;
+});
+exportMenu.addEventListener('click', async (e) => {
+  const btn = (e.target as HTMLElement).closest('button');
+  if (!btn) return;
+  e.stopPropagation();
+  exportMenu.hidden = true;
+  await runExport(btn.dataset.export!);
+});
+document.addEventListener('click', () => { exportMenu.hidden = true; });
 
 // debug/e2e hook
 (window as unknown as { editor: Editor }).editor = editor;

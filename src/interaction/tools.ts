@@ -8,11 +8,14 @@ export interface PointerInfo {
   pos: Vec2; // pt-space (style points), not pixels
   alt: boolean;
   shift: boolean;
+  meta?: boolean; // Cmd (mac) / Ctrl — additive/toggle selection, like shift
 }
 
 export interface Selection {
   atoms: Set<number>;
   bonds: Set<number>;
+  arrows?: Set<number>;
+  pluses?: Set<number>;
 }
 
 export interface ToolContext {
@@ -35,4 +38,6 @@ export interface Tool {
   onMove?(e: PointerInfo, ctx: ToolContext): void;
   onUp?(e: PointerInfo, ctx: ToolContext): void;
   onHover?(e: PointerInfo, ctx: ToolContext): void;
+  /** Plain-key press (no modifiers); return true if handled (consumes the key). */
+  onKey?(key: string, ctx: ToolContext): boolean;
 }

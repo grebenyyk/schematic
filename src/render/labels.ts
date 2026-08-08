@@ -99,6 +99,9 @@ export function labelColor(atom: Atom, style: StyleSheet): string {
 export type TextMeasurer = (text: string, scale?: number) => number;
 
 let measureCanvas: CanvasRenderingContext2D | null | undefined;
+/** Cache measureText by font+size+text — the same labels are measured on every
+ * frame of a drag, so this removes almost all measurement work during gestures. */
+const measureCache = new Map<string, number>();
 
 /** Canvas-backed measurement when available, per-char estimate otherwise. */
 export function makeMeasurer(style: StyleSheet): TextMeasurer {
@@ -107,11 +110,18 @@ export function makeMeasurer(style: StyleSheet): TextMeasurer {
   }
   return (text, scale = 1) => {
     const size = style.labelSizePt * scale;
+    const key = `${size}|${style.labelFont}|${text}`;
+    const hit = measureCache.get(key);
+    if (hit !== undefined) return hit;
+    let w: number;
     if (measureCanvas) {
       measureCanvas.font = `${size}px ${style.labelFont}`;
-      return measureCanvas.measureText(text).width;
+      w = measureCanvas.measureText(text).width;
+    } else {
+      w = text.length * size * 0.62; // jsdom / fallback estimate
     }
-    return text.length * size * 0.62; // jsdom / fallback estimate
+    measureCache.set(key, w);
+    return w;
   };
 }
 

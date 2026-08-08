@@ -76,3 +76,42 @@ export function updateCamera(
   const h = Math.max(cam.y + curH, content.y + content.height) - y;
   return { x, y, scale: Math.max(w / rectW, h / rectH) };
 }
+
+/** Clamp bounds so zoom can't collapse the view to nothing or blow it out. */
+export const MIN_SCALE = 0.01;
+export const MAX_SCALE = 4;
+
+/**
+ * Camera after a pan drag: the world point grabbed at the gesture start stays
+ * under the pointer. `dxPx`/`dyPx` are CSS-pixel deltas from the drag start,
+ * scaled by the camera's scale *at the start* (constant through a pan, since
+ * panning never zooms). Derived absolutely from the start, so a dropped
+ * pointermove can't drift it.
+ */
+export function panCamera(start: Camera, dxPx: number, dyPx: number): Camera {
+  return {
+    x: start.x - dxPx * start.scale,
+    y: start.y - dyPx * start.scale,
+    scale: start.scale,
+  };
+}
+
+/** Factor adjusted so the resulting scale stays within [MIN_SCALE, MAX_SCALE]. */
+export function clampZoomFactor(scale: number, factor: number): number {
+  const next = scale * factor;
+  if (next < MIN_SCALE) return MIN_SCALE / scale;
+  if (next > MAX_SCALE) return MAX_SCALE / scale;
+  return factor;
+}
+
+/**
+ * Camera after zooming by `factor` toward `anchor` (pt-space): the anchor point
+ * stays pinned under the cursor. factor > 1 zooms in, < 1 zooms out.
+ */
+export function zoomCamera(cam: Camera, anchor: Vec2, factor: number): Camera {
+  return {
+    scale: cam.scale * factor,
+    x: anchor.x - (anchor.x - cam.x) * factor,
+    y: anchor.y - (anchor.y - cam.y) * factor,
+  };
+}

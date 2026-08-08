@@ -1,12 +1,17 @@
 import type { Atom, Bond, Molecule } from './molecule';
+import type { ReactionArrow, Plus } from './reaction';
 
 export interface Selection {
   atoms: Set<number>;
   bonds: Set<number>;
+  arrows?: Set<number>;
+  pluses?: Set<number>;
 }
 
 export interface Document {
   molecules: Molecule[]; // disconnected fragments = separate molecules
+  arrows: ReactionArrow[]; // free-standing reaction arrows
+  pluses: Plus[]; // plus signs between molecules
   selection: Selection;
   meta: { nextId: number };
 }
@@ -14,6 +19,8 @@ export interface Document {
 export function createDocument(): Document {
   return {
     molecules: [],
+    arrows: [],
+    pluses: [],
     selection: { atoms: new Set(), bonds: new Set() },
     meta: { nextId: 1 },
   };
@@ -70,4 +77,20 @@ export function* allAtoms(doc: Document): Generator<Atom> {
 
 export function* allBonds(doc: Document): Generator<Bond> {
   for (const m of doc.molecules) yield* m.bonds.values();
+}
+
+export function findArrow(doc: Document, id: number): ReactionArrow | undefined {
+  return doc.arrows.find((a) => a.id === id);
+}
+
+export function findPlus(doc: Document, id: number): Plus | undefined {
+  return doc.pluses.find((p) => p.id === id);
+}
+
+export function* allArrows(doc: Document): Generator<ReactionArrow> {
+  yield* doc.arrows;
+}
+
+export function* allPluses(doc: Document): Generator<Plus> {
+  yield* doc.pluses;
 }

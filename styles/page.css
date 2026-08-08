@@ -123,6 +123,47 @@ body {
   -webkit-user-select: none;
 }
 
+#export-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+#export-menu[hidden] {
+  display: none;
+}
+
+#export-menu {
+  position: absolute;
+  top: 32px;
+  right: 0;
+  z-index: 10;
+  background: #fff;
+  border: 1px solid #d4d4d4;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  min-width: 124px;
+}
+
+#export-menu button {
+  border: none;
+  background: none;
+  padding: 6px 12px;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  white-space: nowrap;
+  width: 100%;
+  height: auto;
+  color: #333;
+}
+
+#export-menu button:hover {
+  background: #f0f4f9;
+}
+
 #canvas-host .canvas {
   width: 100%;
   height: 100%;

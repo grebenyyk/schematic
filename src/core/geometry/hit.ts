@@ -41,18 +41,50 @@ export function pickBond(doc: Document, point: Vec2, tolerance: number): number 
   return best;
 }
 
+/** Nearest reaction arrow within tolerance of the point, else null. */
+export function pickArrow(doc: Document, point: Vec2, tolerance: number): number | null {
+  let best: number | null = null;
+  let bestDist = tolerance;
+  for (const arrow of doc.arrows) {
+    const d = distToSegment(point, arrow.from, arrow.to);
+    if (d <= bestDist) {
+      bestDist = d;
+      best = arrow.id;
+    }
+  }
+  return best;
+}
+
+/** Nearest plus sign within radius of the point, else null. */
+export function pickPlus(doc: Document, point: Vec2, radius: number): number | null {
+  let best: number | null = null;
+  let bestDist = radius;
+  for (const plus of doc.pluses) {
+    const d = dist(point, plus.pos);
+    if (d <= bestDist) {
+      bestDist = d;
+      best = plus.id;
+    }
+  }
+  return best;
+}
+
 export interface PickOptions {
   atomRadius: number;
   bondTolerance: number;
 }
 
-export type PickResult = { kind: 'atom' | 'bond'; id: number } | null;
+export type PickResult = { kind: 'atom' | 'bond' | 'arrow' | 'plus'; id: number } | null;
 
-/** Atoms take priority over bonds. */
+/** Atoms take priority over bonds, then arrows, then pluses. */
 export function pick(doc: Document, point: Vec2, opts: PickOptions): PickResult {
   const atom = pickAtom(doc, point, opts.atomRadius);
   if (atom !== null) return { kind: 'atom', id: atom };
   const bond = pickBond(doc, point, opts.bondTolerance);
   if (bond !== null) return { kind: 'bond', id: bond };
+  const arrow = pickArrow(doc, point, opts.bondTolerance);
+  if (arrow !== null) return { kind: 'arrow', id: arrow };
+  const plus = pickPlus(doc, point, opts.atomRadius);
+  if (plus !== null) return { kind: 'plus', id: plus };
   return null;
 }

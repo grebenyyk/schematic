@@ -1,6 +1,7 @@
 import type { Document } from '../model/document';
 import { findAtom, findBond } from '../model/document';
 import type { Vec2 } from '../geometry/vec2';
+import type { ReactionArrow, Plus } from '../model/reaction';
 import {
   addAtom, addBond, emptyMolecule, removeAtom, removeBond, updateAtom, updateBond,
   type Atom, type Bond, type BondOrder, type Molecule,
@@ -376,5 +377,119 @@ export class DeleteAtoms implements Command {
   undo(doc: Document): Document {
     if (!this.snapshot) return doc;
     return { ...doc, molecules: this.snapshot };
+  }
+}
+
+/** Append a reaction arrow; undo removes it. */
+export class AddArrow implements Command {
+  readonly label = 'Add arrow';
+  constructor(private readonly arrow: ReactionArrow) {}
+
+  do(doc: Document): Document {
+    return { ...doc, arrows: [...doc.arrows, this.arrow] };
+  }
+  undo(doc: Document): Document {
+    return { ...doc, arrows: doc.arrows.filter((a) => a.id !== this.arrow.id) };
+  }
+}
+
+/** Append a plus sign; undo removes it. */
+export class AddPlus implements Command {
+  readonly label = 'Add plus';
+  constructor(private readonly plus: Plus) {}
+
+  do(doc: Document): Document {
+    return { ...doc, pluses: [...doc.pluses, this.plus] };
+  }
+  undo(doc: Document): Document {
+    return { ...doc, pluses: doc.pluses.filter((p) => p.id !== this.plus.id) };
+  }
+}
+
+/** Translate a set of arrows by a delta; undo applies the inverse. */
+export class MoveArrows implements Command {
+  readonly label = 'Move';
+  constructor(
+    private readonly ids: number[],
+    private readonly delta: Vec2,
+  ) {}
+
+  do(doc: Document): Document {
+    return this.translate(doc, this.delta);
+  }
+  undo(doc: Document): Document {
+    return this.translate(doc, { x: -this.delta.x, y: -this.delta.y });
+  }
+
+  private translate(doc: Document, d: Vec2): Document {
+    const ids = new Set(this.ids);
+    return {
+      ...doc,
+      arrows: doc.arrows.map((a) =>
+        ids.has(a.id)
+          ? { ...a, from: { x: a.from.x + d.x, y: a.from.y + d.y }, to: { x: a.to.x + d.x, y: a.to.y + d.y } }
+          : a),
+    };
+  }
+}
+
+/** Translate a set of plus signs by a delta; undo applies the inverse. */
+export class MovePluses implements Command {
+  readonly label = 'Move';
+  constructor(
+    private readonly ids: number[],
+    private readonly delta: Vec2,
+  ) {}
+
+  do(doc: Document): Document {
+    return this.translate(doc, this.delta);
+  }
+  undo(doc: Document): Document {
+    return this.translate(doc, { x: -this.delta.x, y: -this.delta.y });
+  }
+
+  private translate(doc: Document, d: Vec2): Document {
+    const ids = new Set(this.ids);
+    return {
+      ...doc,
+      pluses: doc.pluses.map((p) =>
+        ids.has(p.id) ? { ...p, pos: { x: p.pos.x + d.x, y: p.pos.y + d.y } } : p),
+    };
+  }
+}
+
+/** Delete arrows. Snapshot-based undo, like DeleteAtoms. */
+export class DeleteArrows implements Command {
+  readonly label = 'Delete arrow';
+  private snapshot: ReactionArrow[] | null = null;
+
+  constructor(private readonly ids: number[]) {}
+
+  do(doc: Document): Document {
+    this.snapshot = doc.arrows;
+    const ids = new Set(this.ids);
+    return { ...doc, arrows: doc.arrows.filter((a) => !ids.has(a.id)) };
+  }
+  undo(doc: Document): Document {
+    if (!this.snapshot) return doc;
+    return { ...doc, arrows: this.snapshot };
+  }
+}
+
+/** Delete plus signs. Snapshot-based undo, like DeleteAtoms. */
+export class DeletePluses implements Command {
+  readonly label = 'Delete plus';
+  private snapshot: Plus[] | null = null;
+
+  constructor(private readonly ids: number[]) {}
+
+  do(doc: Document): Document {
+    this.snapshot = doc.pluses;
+    const ids = new Set(this.ids);
+    return { ...doc, pluses: doc.pluses.filter((p) => !ids.has(p.id)) };
+  }
+  undo(doc: Document): Document {
+    if (!this.snapshot) return doc;
+    return { ...doc, pluses: this.snapshot };
   }
 }
